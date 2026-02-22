@@ -75,12 +75,12 @@ export async function GET(req: Request) {
           .dividedBy(new BigNumber(10).pow(debtDecimals))
           .toNumber();
 
-        // Prices are fixed-point aligned with asset decimals
+        // NAVI Prices from Oracle are always 1e9 regardless of token
         const collateralPrice = new BigNumber(String(p.collateral_price ?? 0))
-          .dividedBy(new BigNumber(10).pow(collateralDecimals))
+          .dividedBy(new BigNumber(10).pow(9))
           .toNumber();
         const debtPrice = new BigNumber(String(p.debt_price ?? 0))
-          .dividedBy(new BigNumber(10).pow(debtDecimals))
+          .dividedBy(new BigNumber(10).pow(9))
           .toNumber();
 
         const treasuryAmount = new BigNumber(String(p.treasury ?? 0))

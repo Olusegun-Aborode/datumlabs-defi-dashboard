@@ -120,10 +120,19 @@ export async function GET(req: Request) {
           const collateralAssets: { symbol: string; amount: number; valueUsd: number }[] = [];
           const borrowAssets: { symbol: string; amount: number; valueUsd: number }[] = [];
 
-          for (const [symbol, balances] of portfolio.entries()) {
+          for (const [rawSymbol, balances] of portfolio.entries()) {
             const rawSupply = Number(balances.supplyBalance ?? 0);
             const rawBorrow = Number(balances.borrowBalance ?? 0);
             if (rawSupply === 0 && rawBorrow === 0) continue;
+
+            let symbol = rawSymbol;
+            if (symbol === 'Sui') symbol = 'SUI';
+            if (symbol === 'nUSDC') symbol = 'USDC';
+            if (symbol === 'nUSDT') symbol = 'wUSDT';
+            if (symbol === 'vSui') symbol = 'vSUI';
+            if (symbol === 'haSui') symbol = 'haSUI';
+            if (symbol === 'EnzoBTC') symbol = 'enzoBTC';
+            if (symbol === 'LZWBTC') symbol = 'wBTC';
 
             const decimals = POOL_CONFIGS[symbol]?.decimals ?? 9;
             const supplyAmt = rawSupply / Math.pow(10, decimals);
