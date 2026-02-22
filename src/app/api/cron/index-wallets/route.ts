@@ -70,6 +70,7 @@ export async function GET(req: Request) {
             collateralAssets: '[]',
             borrowAssets: '[]',
             refreshPriority: 3,
+            lastUpdated: new Date(0),
           },
           update: {},
         });
