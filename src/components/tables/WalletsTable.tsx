@@ -23,9 +23,10 @@ interface WalletsTableProps {
 export default function WalletsTable({ data, total, page, limit, onPageChange }: WalletsTableProps) {
   const totalPages = Math.max(1, Math.ceil(total / limit));
 
-  function parseAssets(json: string): string[] {
+  function parseAssets(json: string): any[] {
     try {
-      return JSON.parse(json);
+      const parsed = JSON.parse(json);
+      return Array.isArray(parsed) ? parsed : [];
     } catch {
       return [];
     }
@@ -66,11 +67,14 @@ export default function WalletsTable({ data, total, page, limit, onPageChange }:
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex flex-wrap gap-1">
-                        {parseAssets(row.collateralAssets).map((a) => (
-                          <span key={a} className="rounded bg-zinc-800 px-1.5 py-0.5 text-xs text-zinc-300">
-                            {a}
-                          </span>
-                        ))}
+                        {parseAssets(row.collateralAssets).map((a, i) => {
+                          const symbol = typeof a === 'string' ? a : (a.symbol || '?');
+                          return (
+                            <span key={`${symbol}-${i}`} className="rounded bg-zinc-800 px-1.5 py-0.5 text-xs text-zinc-300">
+                              {symbol}
+                            </span>
+                          );
+                        })}
                       </div>
                     </td>
                     <td className="px-4 py-3 text-right text-zinc-300">
@@ -78,11 +82,14 @@ export default function WalletsTable({ data, total, page, limit, onPageChange }:
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex flex-wrap gap-1">
-                        {parseAssets(row.borrowAssets).map((a) => (
-                          <span key={a} className="rounded bg-zinc-800 px-1.5 py-0.5 text-xs text-zinc-300">
-                            {a}
-                          </span>
-                        ))}
+                        {parseAssets(row.borrowAssets).map((a, i) => {
+                          const symbol = typeof a === 'string' ? a : (a.symbol || '?');
+                          return (
+                            <span key={`${symbol}-${i}`} className="rounded bg-zinc-800 px-1.5 py-0.5 text-xs text-zinc-300">
+                              {symbol}
+                            </span>
+                          );
+                        })}
                       </div>
                     </td>
                     <td className="px-4 py-3 text-right">

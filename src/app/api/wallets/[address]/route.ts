@@ -100,16 +100,16 @@ export async function GET(req: Request, { params }: { params: Promise<{ address:
                     collateralUsd: freshCollateralUsd,
                     borrowUsd: freshBorrowUsd,
                     healthFactor: freshHealthFactor,
-                    collateralAssets: JSON.stringify(freshCollateralAssets.map(a => a.symbol)),
-                    borrowAssets: JSON.stringify(freshBorrowAssets.map(a => a.symbol)),
+                    collateralAssets: JSON.stringify(freshCollateralAssets),
+                    borrowAssets: JSON.stringify(freshBorrowAssets),
                     refreshPriority: freshHealthFactor < 1.2 ? 0 : 3,
                 },
                 update: {
                     collateralUsd: freshCollateralUsd,
                     borrowUsd: freshBorrowUsd,
                     healthFactor: freshHealthFactor,
-                    collateralAssets: JSON.stringify(freshCollateralAssets.map(a => a.symbol)),
-                    borrowAssets: JSON.stringify(freshBorrowAssets.map(a => a.symbol)),
+                    collateralAssets: JSON.stringify(freshCollateralAssets),
+                    borrowAssets: JSON.stringify(freshBorrowAssets),
                     refreshPriority: freshHealthFactor < 1.2 ? 0 : 3,
                     lastUpdated: new Date()
                 }
@@ -128,8 +128,12 @@ export async function GET(req: Request, { params }: { params: Promise<{ address:
                 collateralUsd: dbWallet?.collateralUsd ?? 0,
                 borrowUsd: dbWallet?.borrowUsd ?? 0,
                 healthFactor: dbWallet?.healthFactor ?? 999,
-                collateralAssets: JSON.parse(dbWallet?.collateralAssets ?? '[]').map((a: string) => ({ symbol: a })),
-                borrowAssets: JSON.parse(dbWallet?.borrowAssets ?? '[]').map((a: string) => ({ symbol: a })),
+                collateralAssets: JSON.parse(dbWallet?.collateralAssets ?? '[]').map((a: any) =>
+                    typeof a === 'string' ? { symbol: a } : a
+                ),
+                borrowAssets: JSON.parse(dbWallet?.borrowAssets ?? '[]').map((a: any) =>
+                    typeof a === 'string' ? { symbol: a } : a
+                ),
             }
         });
     } catch (error) {
