@@ -29,6 +29,13 @@ export interface NaviPoolData {
   supplyCapCeiling: number;
   borrowCapCeiling: number;
   price: number;
+  rateModel?: {
+    baseRate: number;
+    multiplier: number;
+    jumpMultiplier: number;
+    kink: number;
+    reserveFactor: number;
+  };
 }
 
 /**
@@ -99,6 +106,18 @@ export async function fetchAllPools(): Promise<NaviPoolData[]> {
       const supplyCap = new BigNumber(String(p.supplyCapCeiling || 0)).dividedBy(1e27).toNumber();
       const borrowCap = new BigNumber(String(p.borrowCapCeiling || 0)).dividedBy(1e27).toNumber();
 
+      let rateModel;
+      if (p.borrowRateFactors?.fields) {
+        const fields = p.borrowRateFactors.fields;
+        rateModel = {
+          baseRate: new BigNumber(fields.baseRate || 0).dividedBy(1e27).toNumber(),
+          multiplier: new BigNumber(fields.multiplier || 0).dividedBy(1e27).toNumber(),
+          jumpMultiplier: new BigNumber(fields.jumpRateMultiplier || 0).dividedBy(1e27).toNumber(),
+          kink: new BigNumber(fields.optimalUtilization || 0).dividedBy(1e27).toNumber(),
+          reserveFactor: new BigNumber(fields.reserveFactor || 0).dividedBy(1e27).toNumber(),
+        };
+      }
+
       pools.push({
         symbol: config.symbol,
         poolId,
@@ -112,11 +131,12 @@ export async function fetchAllPools(): Promise<NaviPoolData[]> {
         supplyApy,
         borrowApy,
         utilization: calcUtilization(totalSupply, totalBorrows),
-        ltv: Number(p.ltv || 0),
-        liquidationThreshold: Number(p.liquidationFactor?.threshold || 0),
+        ltv: Number(p.ltvValue || 0) * 100,
+        liquidationThreshold: Number(p.liquidationFactor?.threshold || 0) * 100,
         supplyCapCeiling: supplyCap,
         borrowCapCeiling: borrowCap,
         price,
+        rateModel,
       });
     }
   } catch (error) {

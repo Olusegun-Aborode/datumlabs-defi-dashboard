@@ -1,6 +1,7 @@
 import { fetchSinglePool, fetchAllPools } from '@/lib/sdk';
 
 import { POOL_SYMBOLS } from '@/lib/constants';
+import { getDb } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 60;
@@ -21,10 +22,18 @@ export async function GET(
       return Response.json({ error: 'Pool not found' }, { status: 404 });
     }
 
-    // TODO: Fetch history from DB (PoolDaily) once implemented
-    // const history = await db.poolDaily.findMany(...)
+    // Fetch history from DB (PoolDaily)
+    let history = [];
+    const db = getDb();
+    if (db) {
+      history = await db.poolDaily.findMany({
+        where: { symbol },
+        orderBy: { date: 'asc' },
+        take: 90,
+      });
+    }
 
-    return Response.json({ pool, history: [] });
+    return Response.json({ pool, rateModel: pool.rateModel, history });
   } catch (error) {
     return Response.json({ error: String(error) }, { status: 500 });
   }
