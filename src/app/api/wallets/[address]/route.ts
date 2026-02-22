@@ -6,8 +6,9 @@ import { POOL_CONFIGS } from '@/lib/constants';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET(req: Request, { params }: { params: { address: string } }) {
-    const address = params.address.toLowerCase();
+export async function GET(req: Request, { params }: { params: Promise<{ address: string }> }) {
+    const { address: rawAddress } = await params;
+    const address = rawAddress.toLowerCase();
 
     const db = getDb();
     if (!db) {

@@ -2,10 +2,12 @@
 
 import { cn } from '@/lib/utils';
 
+import { ReactNode } from 'react';
+
 interface KpiCardProps {
   title: string;
-  value: string;
-  subtitle?: string;
+  value: string | ReactNode;
+  subtitle?: string | ReactNode;
   className?: string;
 }
 
