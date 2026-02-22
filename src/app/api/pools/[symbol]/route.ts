@@ -1,5 +1,7 @@
 import { fetchSinglePool, fetchAllPools } from '@/lib/sdk';
 
+import { POOL_SYMBOLS } from '@/lib/constants';
+
 export const dynamic = 'force-dynamic';
 export const revalidate = 60;
 
@@ -9,7 +11,8 @@ export async function GET(
 ) {
   try {
     const { symbol: rawSymbol } = await params;
-    const symbol = rawSymbol.toUpperCase();
+    const upper = rawSymbol.toUpperCase();
+    const symbol = POOL_SYMBOLS.find(s => s.toUpperCase() === upper) || upper;
 
     // Fetch current pool state
     const pool = await fetchSinglePool(symbol);

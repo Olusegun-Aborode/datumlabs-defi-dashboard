@@ -7,7 +7,7 @@ import KpiCard from '@/components/KpiCard';
 import SimpleLineChart from '@/components/charts/SimpleLineChart';
 import InterestRateCurve from '@/components/charts/InterestRateCurve';
 import DonutChart from '@/components/charts/DonutChart';
-import { POOL_CONFIGS } from '@/lib/constants';
+import { POOL_CONFIGS, POOL_SYMBOLS } from '@/lib/constants';
 import { formatUsd, formatPercent, formatNumber } from '@/lib/utils';
 
 interface PoolDetail {
@@ -51,9 +51,10 @@ interface PairData {
 }
 
 export default function MarketDetailPage({ params }: { params: Promise<{ symbol: string }> }) {
-  const { symbol } = use(params);
-  const upperSymbol = symbol.toUpperCase();
-  const config = POOL_CONFIGS[upperSymbol];
+  const { symbol: routeSymbol } = use(params);
+  const upperSymbol = routeSymbol.toUpperCase();
+  const symbol = POOL_SYMBOLS.find(s => s.toUpperCase() === upperSymbol) || upperSymbol;
+  const config = POOL_CONFIGS[symbol];
 
   const [pool, setPool] = useState<PoolDetail | null>(null);
   const [rateModel, setRateModel] = useState<RateModel | null>(null);
@@ -65,7 +66,7 @@ export default function MarketDetailPage({ params }: { params: Promise<{ symbol:
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch(`/navi/api/pools/${upperSymbol}`)
+    fetch(`/navi/api/pools/${symbol}`)
       .then((r) => r.json())
       .then((data) => {
         setPool(data.pool);
@@ -75,12 +76,12 @@ export default function MarketDetailPage({ params }: { params: Promise<{ symbol:
       })
       .catch(console.error)
       .finally(() => setLoading(false));
-  }, [upperSymbol]);
+  }, [symbol]);
 
   if (loading) {
     return (
       <div className="flex h-64 items-center justify-center text-zinc-500">
-        Loading {upperSymbol} data...
+        Loading {symbol} data...
       </div>
     );
   }
@@ -118,15 +119,15 @@ export default function MarketDetailPage({ params }: { params: Promise<{ symbol:
             className="inline-block h-4 w-4 rounded-full"
             style={{ backgroundColor: config?.color ?? '#666' }}
           />
-          <h1 className="text-2xl font-bold text-white">{upperSymbol}</h1>
-          <span className="text-sm text-zinc-400">{config?.name ?? upperSymbol}</span>
+          <h1 className="text-2xl font-bold text-white">{symbol}</h1>
+          <span className="text-sm text-zinc-400">{config?.name ?? symbol}</span>
         </div>
       </div>
 
       {/* Row 1: Overview cards */}
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-        <KpiCard title="Total Supply" value={pool ? formatUsd(pool.totalSupplyUsd, true) : '—'} subtitle={pool ? `${formatNumber(pool.totalSupply)} ${upperSymbol}` : undefined} />
-        <KpiCard title="Total Borrows" value={pool ? formatUsd(pool.totalBorrowsUsd, true) : '—'} subtitle={pool ? `${formatNumber(pool.totalBorrows)} ${upperSymbol}` : undefined} />
+        <KpiCard title="Total Supply" value={pool ? formatUsd(pool.totalSupplyUsd, true) : '—'} subtitle={pool ? `${formatNumber(pool.totalSupply)} ${symbol}` : undefined} />
+        <KpiCard title="Total Borrows" value={pool ? formatUsd(pool.totalBorrowsUsd, true) : '—'} subtitle={pool ? `${formatNumber(pool.totalBorrows)} ${symbol}` : undefined} />
         <KpiCard title="Supply APY" value={pool ? formatPercent(pool.supplyApy) : '—'} />
         <KpiCard title="Borrow APY" value={pool ? formatPercent(pool.borrowApy) : '—'} />
       </div>
@@ -223,8 +224,8 @@ export default function MarketDetailPage({ params }: { params: Promise<{ symbol:
                 />
               </div>
               <div className="mt-1 flex justify-between text-xs text-zinc-600">
-                <span>{formatNumber(pool.totalSupply)} {upperSymbol}</span>
-                <span>{formatNumber(pool.supplyCapCeiling)} {upperSymbol}</span>
+                <span>{formatNumber(pool.totalSupply)} {symbol}</span>
+                <span>{formatNumber(pool.supplyCapCeiling)} {symbol}</span>
               </div>
             </div>
           ) : (
@@ -248,8 +249,8 @@ export default function MarketDetailPage({ params }: { params: Promise<{ symbol:
                 />
               </div>
               <div className="mt-1 flex justify-between text-xs text-zinc-600">
-                <span>{formatNumber(pool.totalBorrows)} {upperSymbol}</span>
-                <span>{formatNumber(pool.borrowCapCeiling)} {upperSymbol}</span>
+                <span>{formatNumber(pool.totalBorrows)} {symbol}</span>
+                <span>{formatNumber(pool.borrowCapCeiling)} {symbol}</span>
               </div>
             </div>
           ) : (
@@ -262,11 +263,11 @@ export default function MarketDetailPage({ params }: { params: Promise<{ symbol:
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <DonutChart
           data={borrowedAgainst}
-          title={`Assets Borrowed Against ${upperSymbol} Collateral`}
+          title={`Assets Borrowed Against ${symbol} Collateral`}
         />
         <DonutChart
           data={collateralUsed}
-          title={`Collateral Used to Borrow ${upperSymbol}`}
+          title={`Collateral Used to Borrow ${symbol}`}
         />
       </div>
     </div>
