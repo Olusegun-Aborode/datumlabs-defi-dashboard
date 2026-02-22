@@ -8,7 +8,7 @@ export default function MarketsPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch('/api/pools')
+    fetch('/navi/api/pools')
       .then((r) => r.json())
       .then((data) => setMarkets(data.pools ?? []))
       .catch(console.error)

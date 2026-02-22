@@ -35,8 +35,8 @@ export default function OverviewPage() {
   useEffect(() => {
     setLoading(true);
     Promise.all([
-      fetch('/api/pools').then((r) => r.json()),
-      fetch(`/api/pools/history?days=${days}`).then((r) => r.json()),
+      fetch('/navi/api/pools').then((r) => r.json()),
+      fetch(`/navi/api/pools/history?days=${days}`).then((r) => r.json()),
     ])
       .then(([poolsData, historyData]) => {
         setPools(poolsData);

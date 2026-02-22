@@ -43,8 +43,8 @@ export default function LiquidationPage() {
     if (filters.to) params.set('to', filters.to);
 
     Promise.all([
-      fetch(`/api/liquidations?${params}`).then((r) => r.json()),
-      fetch('/api/liquidations/stats').then((r) => r.json()),
+      fetch(`/navi/api/liquidations?${params}`).then((r) => r.json()),
+      fetch('/navi/api/liquidations/stats').then((r) => r.json()),
     ])
       .then(([eventsData, statsData]) => {
         setEvents(eventsData.events ?? []);

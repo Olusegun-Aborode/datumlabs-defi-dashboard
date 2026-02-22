@@ -27,7 +27,7 @@ export default function WalletsPage() {
     if (filters.borrow) params.set('borrow', filters.borrow);
     if (filters.minHf) params.set('minHf', filters.minHf);
 
-    fetch(`/api/wallets?${params}`)
+    fetch(`/navi/api/wallets?${params}`)
       .then((r) => r.json())
       .then((data) => {
         setWallets(data.wallets ?? []);

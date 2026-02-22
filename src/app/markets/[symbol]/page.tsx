@@ -65,7 +65,7 @@ export default function MarketDetailPage({ params }: { params: Promise<{ symbol:
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch(`/api/pools/${upperSymbol}`)
+    fetch(`/navi/api/pools/${upperSymbol}`)
       .then((r) => r.json())
       .then((data) => {
         setPool(data.pool);
