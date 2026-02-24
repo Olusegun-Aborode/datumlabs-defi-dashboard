@@ -22,6 +22,29 @@ interface StackedAreaChartProps {
   valueKey: string;
 }
 
+const CustomTooltip = ({ active, payload, label }: any) => {
+  if (active && payload && payload.length) {
+    const valid = payload.filter((p: any) => p.value > 0).sort((a: any, b: any) => b.value - a.value);
+    return (
+      <div className="rounded-xl border border-white/10 bg-black/70 backdrop-blur-xl p-4 shadow-2xl">
+        <p className="mb-3 text-xs font-medium text-zinc-400">{formatDate(String(label))}</p>
+        <div className="grid grid-cols-2 gap-x-6 gap-y-2">
+          {valid.map((entry: any, index: number) => (
+            <div key={index} className="flex items-center justify-between gap-4 text-xs">
+              <div className="flex items-center gap-1.5 animate-in fade-in slide-in-from-bottom-1">
+                <span className="h-2 w-2 rounded-full" style={{ backgroundColor: entry.color }} />
+                <span className="text-zinc-300">{entry.name}</span>
+              </div>
+              <span className="font-medium text-white">{formatUsd(entry.value, true)}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+  return null;
+};
+
 export default function StackedAreaChart({
   data,
   symbols,
@@ -70,18 +93,7 @@ export default function StackedAreaChart({
             axisLine={{ stroke: '#ffffff10' }}
             width={70}
           />
-          <Tooltip
-            contentStyle={{
-              backgroundColor: 'rgba(0, 0, 0, 0.7)',
-              backdropFilter: 'blur(12px)',
-              border: '1px solid rgba(255,255,255,0.1)',
-              borderRadius: 12,
-              fontSize: 12,
-              boxShadow: '0 8px 32px rgba(0,0,0,0.4)'
-            }}
-            labelFormatter={(v) => formatDate(String(v))}
-            formatter={(value: number | undefined, name: string | undefined) => [formatUsd(value ?? 0, true), name ?? '']}
-          />
+          <Tooltip content={<CustomTooltip />} />
           <Legend
             wrapperStyle={{ fontSize: 11, color: '#a1a1aa' }}
           />

@@ -49,7 +49,7 @@ export default function DonutChart({ data, title }: DonutChartProps) {
             {data.map((entry, index) => (
               <Cell
                 key={entry.name}
-                fill={POOL_CONFIGS[entry.name]?.color ?? PREMIUM_COLORS[index % PREMIUM_COLORS.length]}
+                fill={PREMIUM_COLORS[index % PREMIUM_COLORS.length]}
                 stroke="transparent"
               />
             ))}
