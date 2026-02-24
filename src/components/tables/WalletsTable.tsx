@@ -66,15 +66,6 @@ export default function WalletsTable({ data, total, page, limit, onPageChange }:
                         <Link href={`/wallets/${row.address}`} className="text-white hover:text-blue-400">
                           {truncateAddress(row.address)}
                         </Link>
-                        <a
-                          href={`https://debank.com/profile/${row.address}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-zinc-500 hover:text-white"
-                          title="View on DeBank"
-                        >
-                          <ExternalLink className="h-3.5 w-3.5" />
-                        </a>
                       </div>
                     </td>
                     <td className="px-4 py-3 text-right text-zinc-300">

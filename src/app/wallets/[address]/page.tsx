@@ -63,15 +63,6 @@ export default function WalletDetailsPage() {
                         <span className="text-sm font-mono text-zinc-400 font-normal">
                             {truncateAddress(address)}
                         </span>
-                        <a
-                            href={`https://debank.com/profile/${address}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-zinc-500 hover:text-white"
-                            title="View on DeBank"
-                        >
-                            <ExternalLink className="h-3.5 w-3.5" />
-                        </a>
                     </div>
                 </h1>
                 <p className="mt-1 text-sm text-zinc-400">
