@@ -26,16 +26,16 @@ const CustomTooltip = ({ active, payload, label }: any) => {
   if (active && payload && payload.length) {
     const valid = payload.filter((p: any) => p.value > 0).sort((a: any, b: any) => b.value - a.value);
     return (
-      <div className="rounded-xl border border-white/10 bg-black/70 backdrop-blur-xl p-4 shadow-2xl">
-        <p className="mb-3 text-xs font-medium text-zinc-400">{formatDate(String(label))}</p>
-        <div className="grid grid-cols-2 gap-x-6 gap-y-2">
+      <div className="rounded-xl border border-white/10 bg-black/80 backdrop-blur-xl p-3 shadow-2xl max-h-[200px] max-w-[300px] overflow-y-auto custom-scrollbar">
+        <p className="mb-2 text-xs font-semibold text-zinc-300 border-b border-white/10 pb-1">{formatDate(String(label))}</p>
+        <div className="grid grid-cols-2 gap-x-4 gap-y-1.5">
           {valid.map((entry: any, index: number) => (
-            <div key={index} className="flex items-center justify-between gap-4 text-xs">
-              <div className="flex items-center gap-1.5 animate-in fade-in slide-in-from-bottom-1">
-                <span className="h-2 w-2 rounded-full" style={{ backgroundColor: entry.color }} />
-                <span className="text-zinc-300">{entry.name}</span>
+            <div key={index} className="flex items-center justify-between gap-2 text-[10px]">
+              <div className="flex items-center gap-1.5 truncate">
+                <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: entry.color }} />
+                <span className="text-zinc-400 truncate max-w-[60px]" title={entry.name}>{entry.name}</span>
               </div>
-              <span className="font-medium text-white">{formatUsd(entry.value, true)}</span>
+              <span className="font-medium text-white shrink-0">{formatUsd(entry.value, true)}</span>
             </div>
           ))}
         </div>
