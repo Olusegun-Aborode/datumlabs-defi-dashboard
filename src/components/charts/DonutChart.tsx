@@ -64,7 +64,8 @@ export default function DonutChart({ data, title }: DonutChartProps) {
               color: '#fff',
               boxShadow: '0 8px 32px rgba(0,0,0,0.4)'
             }}
-            formatter={(value: number | undefined) => [formatUsd(value ?? 0, true), '']}
+            itemStyle={{ color: '#fff' }}
+            formatter={(value: number | undefined, name: string | undefined) => [formatUsd(value ?? 0, true), name ?? '']}
           />
           <Legend
             layout="vertical"
