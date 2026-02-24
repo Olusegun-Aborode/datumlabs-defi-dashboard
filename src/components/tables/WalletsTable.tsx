@@ -35,11 +35,11 @@ export default function WalletsTable({ data, total, page, limit, onPageChange }:
   }
 
   return (
-    <div className="rounded-xl border border-zinc-800 bg-zinc-900/50">
+    <div className="rounded-2xl border border-white/5 bg-black/40 backdrop-blur-xl shadow-2xl transition-all duration-300 hover:border-white/10 hover:bg-black/50">
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-zinc-800">
+            <tr className="border-b border-white/5">
               <th className="px-4 py-3 text-left font-medium text-zinc-400">Wallet</th>
               <th className="px-4 py-3 text-right font-medium text-zinc-400">Collateral</th>
               <th className="px-4 py-3 text-left font-medium text-zinc-400">Assets</th>
@@ -60,7 +60,7 @@ export default function WalletsTable({ data, total, page, limit, onPageChange }:
                 const hfColor = healthFactorColor(row.healthFactor);
                 const hfLabel = healthFactorLabel(row.healthFactor);
                 return (
-                  <tr key={row.address} className="border-b border-zinc-800/50 hover:bg-zinc-800/30 transition-colors">
+                  <tr key={row.address} className="border-b border-white/5 hover:bg-white/5 transition-colors">
                     <td className="px-4 py-3 font-mono text-xs text-zinc-300">
                       <div className="flex items-center gap-2">
                         <Link href={`/wallets/${row.address}`} className="text-white hover:text-blue-400">
@@ -127,7 +127,7 @@ export default function WalletsTable({ data, total, page, limit, onPageChange }:
 
       {/* Pagination */}
       {total > 0 && (
-        <div className="flex items-center justify-between border-t border-zinc-800 px-4 py-3">
+        <div className="flex items-center justify-between border-t border-white/5 px-4 py-3">
           <span className="text-xs text-zinc-500">
             Showing {(page - 1) * limit + 1}–{Math.min(page * limit, total)} of {total}
           </span>

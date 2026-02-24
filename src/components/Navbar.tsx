@@ -20,11 +20,11 @@ export default function Navbar() {
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6">
         {/* Logo */}
         <Link href="/overview" className="flex items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-600 text-sm font-bold text-white">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#15CC93] text-sm font-bold text-zinc-950 shadow-[0_0_15px_rgba(21,204,147,0.4)]">
             N
           </div>
           <span className="text-lg font-semibold text-white">
-            NAVI <span className="text-zinc-400 font-normal">Lending</span>
+            NAVI <span className="text-[#15CC93]">Dashboard</span>
           </span>
         </Link>
 
@@ -39,8 +39,8 @@ export default function Navbar() {
                 className={cn(
                   'flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
                   isActive
-                    ? 'bg-zinc-800 text-white'
-                    : 'text-zinc-400 hover:bg-zinc-800/50 hover:text-white'
+                    ? 'bg-[#15CC93]/10 text-[#15CC93]'
+                    : 'text-zinc-400 hover:bg-[#15CC93]/5 hover:text-[#15CC93]'
                 )}
               >
                 <Icon className="h-4 w-4" />

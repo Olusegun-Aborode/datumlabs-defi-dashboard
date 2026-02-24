@@ -65,10 +65,10 @@ export default function MarketsTable({ data }: MarketsTableProps) {
   ];
 
   return (
-    <div className="overflow-x-auto rounded-xl border border-zinc-800 bg-zinc-900/50">
+    <div className="overflow-x-auto rounded-2xl border border-white/5 bg-black/40 backdrop-blur-xl shadow-2xl transition-all duration-300 hover:border-white/10 hover:bg-black/50">
       <table className="w-full text-sm">
         <thead>
-          <tr className="border-b border-zinc-800">
+          <tr className="border-b border-white/5">
             {columns.map((col) => (
               <th
                 key={col.key}
@@ -94,7 +94,7 @@ export default function MarketsTable({ data }: MarketsTableProps) {
             sorted.map((row) => (
               <tr
                 key={row.symbol}
-                className="cursor-pointer border-b border-zinc-800/50 hover:bg-zinc-800/30 transition-colors"
+                className="cursor-pointer border-b border-white/5 hover:bg-white/5 transition-colors"
                 onClick={() => router.push(`/markets/${row.symbol}`)}
               >
                 <td className="px-4 py-3">

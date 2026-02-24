@@ -100,7 +100,7 @@ export default function WalletDetailsPage() {
 
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
                 {/* Supplied Assets */}
-                <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-6">
+                <div className="rounded-2xl border border-white/5 bg-black/40 backdrop-blur-xl p-6 shadow-2xl transition-all duration-300 hover:border-white/10 hover:bg-black/50">
                     <h3 className="mb-4 text-sm font-medium text-zinc-400">Supplied Assets</h3>
                     {portfolio.collateralAssets.length === 0 ? (
                         <p className="text-sm text-zinc-500">No assets supplied.</p>
@@ -129,7 +129,7 @@ export default function WalletDetailsPage() {
                 </div>
 
                 {/* Borrowed Assets */}
-                <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-6">
+                <div className="rounded-2xl border border-white/5 bg-black/40 backdrop-blur-xl p-6 shadow-2xl transition-all duration-300 hover:border-white/10 hover:bg-black/50">
                     <h3 className="mb-4 text-sm font-medium text-zinc-400">Borrowed Assets</h3>
                     {portfolio.borrowAssets.length === 0 ? (
                         <p className="text-sm text-zinc-500">No assets borrowed.</p>
@@ -160,7 +160,7 @@ export default function WalletDetailsPage() {
 
             <div>
                 <h2 className="mb-4 text-xl font-bold text-white">Action History</h2>
-                <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-6">
+                <div className="rounded-2xl border border-white/5 bg-black/40 backdrop-blur-xl p-6 shadow-2xl transition-all duration-300 hover:border-white/10 hover:bg-black/50">
                     <h3 className="mb-4 text-sm font-medium text-zinc-400">Past Liquidations</h3>
                     <LiquidationsTable
                         data={paginatedLiquidations}

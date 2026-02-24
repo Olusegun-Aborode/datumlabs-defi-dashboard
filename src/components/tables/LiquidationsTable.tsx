@@ -28,11 +28,11 @@ export default function LiquidationsTable({ data, total, page, limit, onPageChan
   const totalPages = Math.max(1, Math.ceil(total / limit));
 
   return (
-    <div className="rounded-xl border border-zinc-800 bg-zinc-900/50">
+    <div className="rounded-2xl border border-white/5 bg-black/40 backdrop-blur-xl shadow-2xl transition-all duration-300 hover:border-white/10 hover:bg-black/50">
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-zinc-800">
+            <tr className="border-b border-white/5">
               <th className="px-4 py-3 text-left font-medium text-zinc-400">Date</th>
               <th className="px-4 py-3 text-left font-medium text-zinc-400">Borrower</th>
               <th className="px-4 py-3 text-left font-medium text-zinc-400">Liquidator</th>
@@ -52,7 +52,7 @@ export default function LiquidationsTable({ data, total, page, limit, onPageChan
               </tr>
             ) : (
               data.map((row) => (
-                <tr key={row.id} className="border-b border-zinc-800/50 hover:bg-zinc-800/30 transition-colors">
+                <tr key={row.id} className="border-b border-white/5 hover:bg-white/5 transition-colors">
                   <td className="whitespace-nowrap px-4 py-3 text-zinc-400 text-xs">
                     {formatDateFull(row.timestamp)}
                   </td>
@@ -92,7 +92,7 @@ export default function LiquidationsTable({ data, total, page, limit, onPageChan
       </div>
 
       {total > 0 && (
-        <div className="flex items-center justify-between border-t border-zinc-800 px-4 py-3">
+        <div className="flex items-center justify-between border-t border-white/5 px-4 py-3">
           <span className="text-xs text-zinc-500">
             Showing {(page - 1) * limit + 1}–{Math.min(page * limit, total)} of {total}
           </span>

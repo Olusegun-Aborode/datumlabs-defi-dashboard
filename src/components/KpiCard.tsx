@@ -15,7 +15,7 @@ export default function KpiCard({ title, value, subtitle, className }: KpiCardPr
   return (
     <div
       className={cn(
-        'rounded-xl border border-zinc-800 bg-zinc-900/50 p-6',
+        'rounded-2xl border border-white/5 bg-black/40 backdrop-blur-xl p-6 shadow-2xl transition-all duration-300 hover:border-white/10 hover:bg-black/50',
         className
       )}
     >

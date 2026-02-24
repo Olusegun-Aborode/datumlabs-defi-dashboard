@@ -42,32 +42,42 @@ export default function StackedAreaChart({
   }
 
   return (
-    <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-6">
+    <div className="rounded-2xl border border-white/5 bg-black/40 backdrop-blur-xl p-6 shadow-2xl transition-all duration-300 hover:border-white/10 hover:bg-black/50">
       <div className="mb-4 flex items-center justify-between">
         <h3 className="text-sm font-medium text-zinc-400">{title}</h3>
         <TimeFilter value={days} onChange={setDays} />
       </div>
       <ResponsiveContainer width="100%" height={280}>
         <AreaChart data={filteredData} margin={{ top: 5, right: 5, bottom: 5, left: 5 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
+          <defs>
+            {symbols.map((symbol) => (
+              <linearGradient key={`color${symbol}`} id={`color${symbol}`} x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor={POOL_CONFIGS[symbol]?.color ?? '#666'} stopOpacity={0.8} />
+                <stop offset="95%" stopColor={POOL_CONFIGS[symbol]?.color ?? '#666'} stopOpacity={0} />
+              </linearGradient>
+            ))}
+          </defs>
+          <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" />
           <XAxis
             dataKey="date"
             tickFormatter={(v) => formatDate(v)}
             tick={{ fill: '#71717a', fontSize: 11 }}
-            axisLine={{ stroke: '#27272a' }}
+            axisLine={{ stroke: '#ffffff10' }}
           />
           <YAxis
             tickFormatter={(v) => formatUsd(v, true)}
             tick={{ fill: '#71717a', fontSize: 11 }}
-            axisLine={{ stroke: '#27272a' }}
+            axisLine={{ stroke: '#ffffff10' }}
             width={70}
           />
           <Tooltip
             contentStyle={{
-              backgroundColor: '#18181b',
-              border: '1px solid #27272a',
-              borderRadius: 8,
+              backgroundColor: 'rgba(0, 0, 0, 0.7)',
+              backdropFilter: 'blur(12px)',
+              border: '1px solid rgba(255,255,255,0.1)',
+              borderRadius: 12,
               fontSize: 12,
+              boxShadow: '0 8px 32px rgba(0,0,0,0.4)'
             }}
             labelFormatter={(v) => formatDate(String(v))}
             formatter={(value: number | undefined, name: string | undefined) => [formatUsd(value ?? 0, true), name ?? '']}
@@ -82,8 +92,9 @@ export default function StackedAreaChart({
               dataKey={`${symbol}_${valueKey}`}
               stackId="1"
               stroke={POOL_CONFIGS[symbol]?.color ?? '#666'}
-              fill={POOL_CONFIGS[symbol]?.color ?? '#666'}
-              fillOpacity={0.3}
+              strokeWidth={2}
+              fill={`url(#color${symbol})`}
+              fillOpacity={1}
               name={symbol}
             />
           ))}
