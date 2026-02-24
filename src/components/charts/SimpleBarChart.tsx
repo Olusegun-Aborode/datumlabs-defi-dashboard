@@ -22,6 +22,38 @@ export default function SimpleBarChart({
   title,
   color = '#EF4444',
 }: SimpleBarChartProps) {
+  const CustomTooltip = ({ active, payload, label }: any) => {
+    if (active && payload && payload.length) {
+      const dataPayload = payload[0].payload;
+      const totalValue = payload[0].value;
+      const symbols = Object.keys(dataPayload).filter((k) => k !== 'date' && k !== 'value' && k !== 'totalUsd');
+
+      return (
+        <div className="rounded-xl border border-white/10 bg-black/80 backdrop-blur-xl p-4 shadow-2xl min-w-[200px]">
+          <p className="mb-3 text-sm font-semibold text-zinc-300 border-b border-white/10 pb-2">{formatDate(String(label))}</p>
+          <div className="space-y-2 mb-3">
+            {symbols.length > 0 ? (
+              symbols.map((symbol) => {
+                const val = dataPayload[symbol];
+                if (val <= 0) return null;
+                return (
+                  <div key={symbol} className="flex justify-between items-center text-xs">
+                    <span className="text-zinc-400">{symbol}</span>
+                    <span className="text-zinc-200 font-medium">{formatUsd(val, true)}</span>
+                  </div>
+                );
+              })
+            ) : null}
+          </div>
+          <div className="pt-2 border-t border-white/10 flex justify-between items-center text-sm font-semibold text-white">
+            <span>Total Seized</span>
+            <span style={{ color }}>{formatUsd(totalValue ?? 0, true)}</span>
+          </div>
+        </div>
+      );
+    }
+    return null;
+  };
   if (data.length === 0) {
     return (
       <div className="rounded-2xl border border-white/5 bg-black/40 backdrop-blur-xl p-6 shadow-2xl transition-all duration-300 hover:border-white/10 hover:bg-black/50">
@@ -51,29 +83,8 @@ export default function SimpleBarChart({
             axisLine={{ stroke: '#ffffff10' }}
             width={60}
           />
-          <Tooltip
-            contentStyle={{
-              backgroundColor: 'rgba(0, 0, 0, 0.7)',
-              backdropFilter: 'blur(12px)',
-              border: '1px solid rgba(255,255,255,0.1)',
-              borderRadius: 12,
-              fontSize: 12,
-              boxShadow: '0 8px 32px rgba(0,0,0,0.4)'
-            }}
-            labelFormatter={(v) => formatDate(String(v))}
-            formatter={(value: number | undefined, name: string | undefined, props: any) => {
-              const payload = props?.payload;
-              if (payload) {
-                const symbols = Object.keys(payload).filter((k) => k !== 'date' && k !== 'value' && k !== 'totalUsd');
-                if (symbols.length > 0) {
-                  const breakdown = symbols.map((s) => `${s}: ${formatUsd(payload[s], true)}`).join(', ');
-                  return [formatUsd(value ?? 0, true), `Seized (${breakdown})`];
-                }
-              }
-              return [formatUsd(value ?? 0, true), 'Seized'];
-            }}
-          />
-          <Bar dataKey="value" fill={color} radius={[4, 4, 0, 0]} />
+          <Tooltip content={<CustomTooltip />} cursor={{ fill: '#ffffff10' }} />
+          <Bar dataKey="value" fill={color} radius={[4, 4, 0, 0]} minPointSize={2} />
         </BarChart>
       </ResponsiveContainer>
     </div>
