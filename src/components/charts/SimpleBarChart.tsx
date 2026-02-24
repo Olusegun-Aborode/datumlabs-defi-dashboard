@@ -10,6 +10,7 @@ import {
   ResponsiveContainer,
 } from 'recharts';
 import { formatDate, formatUsd } from '@/lib/utils';
+import Watermark from './Watermark';
 
 interface SimpleBarChartProps {
   data: Array<{ date: string; value: number }>;
@@ -66,27 +67,30 @@ export default function SimpleBarChart({
   }
 
   return (
-    <div className="rounded-2xl border border-white/5 bg-black/40 backdrop-blur-xl p-6 shadow-2xl transition-all duration-300 hover:border-white/10 hover:bg-black/50">
-      <h3 className="mb-4 text-sm font-medium text-zinc-400">{title}</h3>
-      <ResponsiveContainer width="100%" height={200}>
-        <BarChart data={data} margin={{ top: 5, right: 5, bottom: 5, left: 5 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" vertical={false} />
-          <XAxis
-            dataKey="date"
-            tickFormatter={(v) => formatDate(v)}
-            tick={{ fill: '#71717a', fontSize: 11 }}
-            axisLine={{ stroke: '#ffffff10' }}
-          />
-          <YAxis
-            tickFormatter={(v) => formatUsd(v, true)}
-            tick={{ fill: '#71717a', fontSize: 11 }}
-            axisLine={{ stroke: '#ffffff10' }}
-            width={60}
-          />
-          <Tooltip content={<CustomTooltip />} cursor={{ fill: '#ffffff10' }} />
-          <Bar dataKey="value" fill={color} radius={[4, 4, 0, 0]} minPointSize={2} />
-        </BarChart>
-      </ResponsiveContainer>
+    <div className="rounded-2xl border border-white/5 bg-black/40 backdrop-blur-xl p-6 shadow-2xl transition-all duration-300 hover:border-white/10 hover:bg-black/50 relative overflow-hidden">
+      <Watermark />
+      <h3 className="mb-4 text-sm font-medium text-zinc-400 relative z-10">{title}</h3>
+      <div className="relative z-10">
+        <ResponsiveContainer width="100%" height={200}>
+          <BarChart data={data} margin={{ top: 5, right: 5, bottom: 5, left: 5 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" vertical={false} />
+            <XAxis
+              dataKey="date"
+              tickFormatter={(v) => formatDate(v)}
+              tick={{ fill: '#71717a', fontSize: 11 }}
+              axisLine={{ stroke: '#ffffff10' }}
+            />
+            <YAxis
+              tickFormatter={(v) => formatUsd(v, true)}
+              tick={{ fill: '#71717a', fontSize: 11 }}
+              axisLine={{ stroke: '#ffffff10' }}
+              width={60}
+            />
+            <Tooltip content={<CustomTooltip />} cursor={{ fill: '#ffffff10' }} />
+            <Bar dataKey="value" fill={color} radius={[4, 4, 0, 0]} minPointSize={2} />
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
     </div>
   );
 }
