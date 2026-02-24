@@ -62,9 +62,9 @@ export async function GET(req: Request, { params }: { params: Promise<{ address:
                 if (symbol === 'EnzoBTC') symbol = 'enzoBTC';
                 if (symbol === 'LZWBTC') symbol = 'wBTC';
 
-                const decimals = POOL_CONFIGS[symbol]?.decimals ?? position.pool.token.decimals ?? 9;
-                const supplyAmt = rawSupply / Math.pow(10, decimals);
-                const borrowAmt = rawBorrow / Math.pow(10, decimals);
+                // NAVI completely normalizes internal state to 9 decimals across all tokens
+                const supplyAmt = rawSupply / Math.pow(10, 9);
+                const borrowAmt = rawBorrow / Math.pow(10, 9);
 
                 const pool = poolMap.get(symbol);
                 const price = pool ? pool.price : 0;

@@ -2,8 +2,8 @@ import { NextResponse } from 'next/server';
 import { CRON_SECRET, NAVI_EVENT_TYPES, POOL_CONFIGS } from '@/lib/constants';
 import { queryEvents } from '@/lib/rpc';
 import { getDb } from '@/lib/db';
-import { getFullnodeUrl, SuiClient } from '@mysten/sui.js/client';
-import { getAddressPortfolio } from 'navi-sdk';
+import { getFullnodeUrl, SuiClient } from '@mysten/sui/client';
+import { getLendingState, getHealthFactor } from '@naviprotocol/lending';
 
 export const dynamic = 'force-dynamic';
 
@@ -112,21 +112,22 @@ export async function GET(req: Request) {
 
       for (const wallet of staleWallets) {
         try {
-          const portfolio = await getAddressPortfolio(wallet.address, false, client as any);
+          const [lendingState, protocolHealthFactor] = await Promise.all([
+            getLendingState(wallet.address, { client, env: 'prod' }),
+            getHealthFactor(wallet.address, { client, env: 'prod' })
+          ]);
 
           let collateralUsd = 0;
           let borrowUsd = 0;
-          let totalCollateralAdjusted = 0;
-          let totalBorrowAdjusted = 0;
           const collateralAssets: { symbol: string; amount: number; valueUsd: number }[] = [];
           const borrowAssets: { symbol: string; amount: number; valueUsd: number }[] = [];
 
-          for (const [rawSymbol, balances] of portfolio.entries()) {
-            const rawSupply = Number(balances.supplyBalance ?? 0);
-            const rawBorrow = Number(balances.borrowBalance ?? 0);
+          for (const position of lendingState) {
+            const rawSupply = Number(position.supplyBalance ?? 0);
+            const rawBorrow = Number(position.borrowBalance ?? 0);
             if (rawSupply === 0 && rawBorrow === 0) continue;
 
-            let symbol = rawSymbol;
+            let symbol = position.pool.token.symbol;
             if (symbol === 'Sui') symbol = 'SUI';
             if (symbol === 'nUSDC') symbol = 'USDC';
             if (symbol === 'nUSDT') symbol = 'wUSDT';
@@ -135,9 +136,9 @@ export async function GET(req: Request) {
             if (symbol === 'EnzoBTC') symbol = 'enzoBTC';
             if (symbol === 'LZWBTC') symbol = 'wBTC';
 
-            const decimals = POOL_CONFIGS[symbol]?.decimals ?? 9;
-            const supplyAmt = rawSupply / Math.pow(10, decimals);
-            const borrowAmt = rawBorrow / Math.pow(10, decimals);
+            // NAVI completely normalizes internal state to 9 decimals across all tokens
+            const supplyAmt = rawSupply / Math.pow(10, 9);
+            const borrowAmt = rawBorrow / Math.pow(10, 9);
 
             const pool = poolMap.get(symbol);
             const price = pool ? pool.price : 0;
@@ -145,21 +146,19 @@ export async function GET(req: Request) {
             if (supplyAmt > 0) {
               const valueUsd = supplyAmt * price;
               collateralUsd += valueUsd;
-              totalCollateralAdjusted += valueUsd * 0.8; // default 0.8 Liq Threshold
               collateralAssets.push({ symbol, amount: supplyAmt, valueUsd });
             }
 
             if (borrowAmt > 0) {
               const valueUsd = borrowAmt * price;
               borrowUsd += valueUsd;
-              totalBorrowAdjusted += valueUsd;
               borrowAssets.push({ symbol, amount: borrowAmt, valueUsd });
             }
           }
 
-          let healthFactor = 999;
-          if (totalBorrowAdjusted > 0) {
-            healthFactor = totalCollateralAdjusted / totalBorrowAdjusted;
+          let healthFactor = protocolHealthFactor;
+          if (Number.isNaN(healthFactor) || !isFinite(healthFactor) || healthFactor < 0) {
+            healthFactor = 999;
           }
 
           let newPriority = 3;
