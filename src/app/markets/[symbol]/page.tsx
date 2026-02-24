@@ -212,7 +212,6 @@ export default function MarketDetailPage({ params }: { params: Promise<{ symbol:
         />
       </div>
 
-      {/* Row 4: Interest Rate Curve */}
       {rateModel && (
         <InterestRateCurve
           baseRate={rateModel.baseRate}
@@ -220,7 +219,7 @@ export default function MarketDetailPage({ params }: { params: Promise<{ symbol:
           jumpMultiplier={rateModel.jumpMultiplier}
           kink={rateModel.kink}
           reserveFactor={rateModel.reserveFactor}
-          currentUtilization={pool?.utilization}
+          currentUtilization={pool?.utilization ? pool.utilization * 100 : undefined}
         />
       )}
 
