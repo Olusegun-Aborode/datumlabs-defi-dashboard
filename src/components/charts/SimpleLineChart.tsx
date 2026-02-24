@@ -61,6 +61,7 @@ export default function SimpleLineChart({
               fontSize: 12,
             }}
             labelFormatter={(v) => formatDate(String(v))}
+            formatter={(value: number | undefined, name: string | undefined) => [yFormatter(value ?? 0), name ?? '']}
           />
           {lines.map((line) => (
             <Line

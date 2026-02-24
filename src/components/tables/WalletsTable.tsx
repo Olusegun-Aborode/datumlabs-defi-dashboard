@@ -2,6 +2,8 @@
 
 import { cn, formatUsd, truncateAddress, formatNumber } from '@/lib/utils';
 import { healthFactorColor, healthFactorLabel } from '@/lib/constants';
+import Link from 'next/link';
+import { ExternalLink } from 'lucide-react';
 
 export interface WalletRow {
   address: string;
@@ -60,7 +62,20 @@ export default function WalletsTable({ data, total, page, limit, onPageChange }:
                 return (
                   <tr key={row.address} className="border-b border-zinc-800/50 hover:bg-zinc-800/30 transition-colors">
                     <td className="px-4 py-3 font-mono text-xs text-zinc-300">
-                      {truncateAddress(row.address)}
+                      <div className="flex items-center gap-2">
+                        <Link href={`/wallets/${row.address}`} className="text-white hover:text-blue-400">
+                          {truncateAddress(row.address)}
+                        </Link>
+                        <a
+                          href={`https://debank.com/profile/${row.address}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-zinc-500 hover:text-white"
+                          title="View on DeBank"
+                        >
+                          <ExternalLink className="h-3.5 w-3.5" />
+                        </a>
+                      </div>
                     </td>
                     <td className="px-4 py-3 text-right text-zinc-300">
                       {formatUsd(row.collateralUsd, true)}

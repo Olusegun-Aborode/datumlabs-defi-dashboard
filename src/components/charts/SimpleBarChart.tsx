@@ -59,7 +59,17 @@ export default function SimpleBarChart({
               fontSize: 12,
             }}
             labelFormatter={(v) => formatDate(String(v))}
-            formatter={(value: number | undefined) => [formatUsd(value ?? 0, true), 'Seized']}
+            formatter={(value: number | undefined, name: string | undefined, props: any) => {
+              const payload = props?.payload;
+              if (payload) {
+                const symbols = Object.keys(payload).filter((k) => k !== 'date' && k !== 'value' && k !== 'totalUsd');
+                if (symbols.length > 0) {
+                  const breakdown = symbols.map((s) => `${s}: ${formatUsd(payload[s], true)}`).join(', ');
+                  return [formatUsd(value ?? 0, true), `Seized (${breakdown})`];
+                }
+              }
+              return [formatUsd(value ?? 0, true), 'Seized'];
+            }}
           />
           <Bar dataKey="value" fill={color} radius={[4, 4, 0, 0]} />
         </BarChart>

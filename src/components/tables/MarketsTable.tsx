@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { formatUsd, formatNumber, formatPercent } from '@/lib/utils';
 import { POOL_CONFIGS } from '@/lib/constants';
@@ -27,6 +27,7 @@ interface MarketsTableProps {
 }
 
 export default function MarketsTable({ data }: MarketsTableProps) {
+  const router = useRouter();
   const [sortKey, setSortKey] = useState<SortKey>('totalSupplyUsd');
   const [sortAsc, setSortAsc] = useState(false);
 
@@ -93,16 +94,17 @@ export default function MarketsTable({ data }: MarketsTableProps) {
             sorted.map((row) => (
               <tr
                 key={row.symbol}
-                className="border-b border-zinc-800/50 hover:bg-zinc-800/30 transition-colors"
+                className="cursor-pointer border-b border-zinc-800/50 hover:bg-zinc-800/30 transition-colors"
+                onClick={() => router.push(`/markets/${row.symbol}`)}
               >
                 <td className="px-4 py-3">
-                  <Link href={`/markets/${row.symbol}`} className="flex items-center gap-2 text-white hover:text-blue-400">
+                  <div className="flex items-center gap-2 text-white hover:text-blue-400">
                     <span
                       className="inline-block h-3 w-3 rounded-full"
                       style={{ backgroundColor: POOL_CONFIGS[row.symbol]?.color ?? '#666' }}
                     />
                     <span className="font-medium">{row.symbol}</span>
-                  </Link>
+                  </div>
                 </td>
                 <td className="px-4 py-3 text-right text-zinc-300">
                   <div>{formatUsd(row.totalSupplyUsd, true)}</div>

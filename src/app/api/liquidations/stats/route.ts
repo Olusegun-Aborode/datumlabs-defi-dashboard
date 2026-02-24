@@ -38,15 +38,16 @@ export async function GET() {
       .sort((a, b) => b.totalUsd - a.totalUsd);
 
     // Daily seized (bar chart data)
-    const dailyMap = new Map<string, number>();
+    const dailyMap = new Map<string, Record<string, any>>();
     for (const evt of events) {
       const day = evt.timestamp.toISOString().split('T')[0];
-      const current = dailyMap.get(day) ?? 0;
-      dailyMap.set(day, current + evt.collateralUsd);
+      if (!dailyMap.has(day)) dailyMap.set(day, { date: day, totalUsd: 0 });
+      const record = dailyMap.get(day)!;
+      record.totalUsd += evt.collateralUsd;
+      record[evt.collateralAsset] = (record[evt.collateralAsset] || 0) + evt.collateralUsd;
     }
-    const dailySeized = Array.from(dailyMap.entries())
-      .map(([date, totalUsd]) => ({ date, totalUsd }))
-      .sort((a, b) => a.date.localeCompare(b.date));
+    const dailySeized = Array.from(dailyMap.values())
+      .sort((a, b) => String(a.date).localeCompare(String(b.date)));
 
     return NextResponse.json({ collateralDistribution, dailySeized });
   } catch (error) {

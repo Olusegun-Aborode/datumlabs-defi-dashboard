@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import KpiCard from '@/components/KpiCard';
+import { ExternalLink } from 'lucide-react';
 import { healthFactorColor, healthFactorLabel } from '@/lib/constants';
 import { formatUsd, formatNumber, truncateAddress } from '@/lib/utils';
 import LiquidationsTable, { type LiquidationRow } from '@/components/tables/LiquidationsTable';
@@ -57,9 +58,20 @@ export default function WalletDetailsPage() {
             <div>
                 <h1 className="text-2xl font-bold text-white flex items-center gap-3">
                     Wallet Overview
-                    <span className="rounded-md bg-zinc-800 px-2 py-1 text-sm font-mono text-zinc-400 font-normal">
-                        {truncateAddress(address)}
-                    </span>
+                    <div className="flex items-center gap-2 rounded-md bg-zinc-800 px-2 py-1">
+                        <span className="text-sm font-mono text-zinc-400 font-normal">
+                            {truncateAddress(address)}
+                        </span>
+                        <a
+                            href={`https://debank.com/profile/${address}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-zinc-500 hover:text-white"
+                            title="View on DeBank"
+                        >
+                            <ExternalLink className="h-3.5 w-3.5" />
+                        </a>
+                    </div>
                 </h1>
                 <p className="mt-1 text-sm text-zinc-400">
                     Real-time on-chain balances and historical liquidation events

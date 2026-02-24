@@ -54,7 +54,19 @@ export default function DonutChart({ data, title }: DonutChartProps) {
             formatter={(value: number | undefined) => [formatUsd(value ?? 0, true), '']}
           />
           <Legend
+            layout="vertical"
+            verticalAlign="middle"
+            align="right"
             wrapperStyle={{ fontSize: 11, color: '#a1a1aa' }}
+            formatter={(value: string, entry: any) => {
+              const { payload } = entry;
+              const percent = payload.percent ? (payload.percent * 100).toFixed(1) + '%' : '';
+              return (
+                <span className="text-zinc-300">
+                  {value} <span className="text-zinc-500">({formatUsd(payload.value, true)} - {percent})</span>
+                </span>
+              );
+            }}
           />
         </PieChart>
       </ResponsiveContainer>

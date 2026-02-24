@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react';
 import KpiCard from '@/components/KpiCard';
-import TimeFilter from '@/components/TimeFilter';
 import StackedAreaChart from '@/components/charts/StackedAreaChart';
 import { POOL_SYMBOLS } from '@/lib/constants';
 import { formatUsd } from '@/lib/utils';
@@ -29,14 +28,13 @@ interface HistoryRow {
 export default function OverviewPage() {
   const [pools, setPools] = useState<PoolsResponse | null>(null);
   const [history, setHistory] = useState<HistoryRow[]>([]);
-  const [days, setDays] = useState(30);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     setLoading(true);
     Promise.all([
       fetch('/navi/api/pools').then((r) => r.json()),
-      fetch(`/navi/api/pools/history?days=${days}`).then((r) => r.json()),
+      fetch(`/navi/api/pools/history?days=90`).then((r) => r.json()),
     ])
       .then(([poolsData, historyData]) => {
         setPools(poolsData);
@@ -44,7 +42,7 @@ export default function OverviewPage() {
       })
       .catch(console.error)
       .finally(() => setLoading(false));
-  }, [days]);
+  }, []);
 
   // Transform history into stacked chart format
   function buildChartData(valueKey: string) {
@@ -74,7 +72,6 @@ export default function OverviewPage() {
           <h1 className="text-2xl font-bold text-white">Protocol Overview</h1>
           <p className="text-sm text-zinc-400">NAVI Lending on Sui — real-time analytics</p>
         </div>
-        <TimeFilter value={days} onChange={setDays} />
       </div>
 
       {/* KPI Cards */}
@@ -97,25 +94,29 @@ export default function OverviewPage() {
       </div>
 
       {/* Stacked Area Charts */}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-1">
-        <StackedAreaChart
-          data={buildChartData('supply')}
-          symbols={POOL_SYMBOLS}
-          title="Total Supply by Asset"
-          valueKey="supply"
-        />
-        <StackedAreaChart
-          data={buildChartData('borrows')}
-          symbols={POOL_SYMBOLS}
-          title="Total Borrows by Asset"
-          valueKey="borrows"
-        />
+      <div className="grid grid-cols-1 gap-4">
+        {/* Full width TVL chart */}
         <StackedAreaChart
           data={buildChartData('tvl')}
           symbols={POOL_SYMBOLS}
           title="TVL by Asset"
           valueKey="tvl"
         />
+        {/* Side-by-side Supply and Borrow charts */}
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          <StackedAreaChart
+            data={buildChartData('supply')}
+            symbols={POOL_SYMBOLS}
+            title="Total Supply by Asset"
+            valueKey="supply"
+          />
+          <StackedAreaChart
+            data={buildChartData('borrows')}
+            symbols={POOL_SYMBOLS}
+            title="Total Borrows by Asset"
+            valueKey="borrows"
+          />
+        </div>
       </div>
     </div>
   );

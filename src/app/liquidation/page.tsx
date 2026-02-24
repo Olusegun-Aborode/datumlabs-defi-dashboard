@@ -69,8 +69,8 @@ export default function LiquidationPage() {
     value: d.totalUsd,
   }));
 
-  const barData = stats.dailySeized.map((d) => ({
-    date: d.date,
+  const barData = stats.dailySeized.map((d: any) => ({
+    ...d,
     value: d.totalUsd,
   }));
 

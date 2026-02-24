@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import {
   AreaChart,
   Area,
@@ -12,6 +13,7 @@ import {
 } from 'recharts';
 import { POOL_CONFIGS } from '@/lib/constants';
 import { formatUsd, formatDate } from '@/lib/utils';
+import TimeFilter from '@/components/TimeFilter';
 
 interface StackedAreaChartProps {
   data: Array<Record<string, unknown>>;
@@ -26,12 +28,14 @@ export default function StackedAreaChart({
   title,
   valueKey,
 }: StackedAreaChartProps) {
-  if (data.length <= 1) {
+  const [days, setDays] = useState(30);
+  const filteredData = data.slice(-days);
+  if (filteredData.length <= 1) {
     return (
       <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-6">
         <h3 className="mb-4 text-sm font-medium text-zinc-400">{title}</h3>
         <div className="flex h-64 items-center justify-center text-zinc-600">
-          {data.length === 0 ? "No data yet — run cron jobs to collect snapshots" : "Need at least 2 days of data to visualize trends"}
+          {filteredData.length === 0 ? "No data yet — run cron jobs to collect snapshots" : "Need at least 2 days of data to visualize trends"}
         </div>
       </div>
     );
@@ -39,9 +43,12 @@ export default function StackedAreaChart({
 
   return (
     <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-6">
-      <h3 className="mb-4 text-sm font-medium text-zinc-400">{title}</h3>
+      <div className="mb-4 flex items-center justify-between">
+        <h3 className="text-sm font-medium text-zinc-400">{title}</h3>
+        <TimeFilter value={days} onChange={setDays} />
+      </div>
       <ResponsiveContainer width="100%" height={280}>
-        <AreaChart data={data} margin={{ top: 5, right: 5, bottom: 5, left: 5 }}>
+        <AreaChart data={filteredData} margin={{ top: 5, right: 5, bottom: 5, left: 5 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
           <XAxis
             dataKey="date"
@@ -63,7 +70,7 @@ export default function StackedAreaChart({
               fontSize: 12,
             }}
             labelFormatter={(v) => formatDate(String(v))}
-            formatter={(value: number | undefined) => [formatUsd(value ?? 0, true), '']}
+            formatter={(value: number | undefined, name: string | undefined) => [formatUsd(value ?? 0, true), name ?? '']}
           />
           <Legend
             wrapperStyle={{ fontSize: 11, color: '#a1a1aa' }}

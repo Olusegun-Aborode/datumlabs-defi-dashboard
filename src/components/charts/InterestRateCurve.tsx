@@ -80,10 +80,10 @@ export default function InterestRateCurve({
           {/* Current utilization marker */}
           {currentUtilization !== undefined && (
             <ReferenceLine
-              x={currentUtilization}
+              x={currentUtilization * 100}
               stroke="#22C55E"
               strokeWidth={2}
-              label={{ value: 'Current', fill: '#22C55E', fontSize: 10 }}
+              label={{ value: 'Current', fill: '#22C55E', fontSize: 10, position: 'insideTopLeft' }}
             />
           )}
           <Line

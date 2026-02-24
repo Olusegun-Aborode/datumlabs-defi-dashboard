@@ -41,6 +41,9 @@ interface HistoryRow {
   avgSupplyApy: number;
   avgBorrowApy: number;
   avgUtilization: number;
+  closeTotalSupplyUsd?: number;
+  closeTotalBorrowsUsd?: number;
+  closePrice?: number;
 }
 
 interface PairData {
@@ -96,6 +99,22 @@ export default function MarketDetailPage({ params }: { params: Promise<{ symbol:
     date: h.date,
     utilization: h.avgUtilization,
   }));
+
+  const supplyCapHistory = history.map((h) => {
+    if (!pool || pool.supplyCapCeiling <= 0) return { date: h.date, utilization: 0 };
+    const price = h.closePrice || pool.price;
+    const supplyQuantity = (h.closeTotalSupplyUsd || 0) / (price || 1);
+    const utilization = supplyQuantity / pool.supplyCapCeiling;
+    return { date: h.date, utilization };
+  });
+
+  const borrowCapHistory = history.map((h) => {
+    if (!pool || pool.borrowCapCeiling <= 0) return { date: h.date, utilization: 0 };
+    const price = h.closePrice || pool.price;
+    const borrowQuantity = (h.closeTotalBorrowsUsd || 0) / (price || 1);
+    const utilization = borrowQuantity / pool.borrowCapCeiling;
+    return { date: h.date, utilization };
+  });
 
   const borrowedAgainst = pairs.asCollateral.map((p) => ({
     name: p.borrowAsset,
@@ -207,56 +226,18 @@ export default function MarketDetailPage({ params }: { params: Promise<{ symbol:
 
       {/* Row 5: Cap utilization */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-6">
-          <h3 className="text-sm font-medium text-zinc-400">Supply Cap Utilization</h3>
-          {pool && pool.supplyCapCeiling > 0 ? (
-            <div className="mt-4">
-              <div className="flex justify-between text-sm">
-                <span className="text-zinc-500">Used</span>
-                <span className="text-zinc-300">
-                  {formatPercent((pool.totalSupply / pool.supplyCapCeiling) * 100)}
-                </span>
-              </div>
-              <div className="mt-2 h-3 overflow-hidden rounded-full bg-zinc-800">
-                <div
-                  className="h-full rounded-full bg-green-500"
-                  style={{ width: `${Math.min((pool.totalSupply / pool.supplyCapCeiling) * 100, 100)}%` }}
-                />
-              </div>
-              <div className="mt-1 flex justify-between text-xs text-zinc-600">
-                <span>{formatNumber(pool.totalSupply)} {symbol}</span>
-                <span>{formatNumber(pool.supplyCapCeiling)} {symbol}</span>
-              </div>
-            </div>
-          ) : (
-            <p className="mt-4 text-sm text-zinc-600">No cap data</p>
-          )}
-        </div>
-        <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-6">
-          <h3 className="text-sm font-medium text-zinc-400">Borrow Cap Utilization</h3>
-          {pool && pool.borrowCapCeiling > 0 ? (
-            <div className="mt-4">
-              <div className="flex justify-between text-sm">
-                <span className="text-zinc-500">Used</span>
-                <span className="text-zinc-300">
-                  {formatPercent((pool.totalBorrows / pool.borrowCapCeiling) * 100)}
-                </span>
-              </div>
-              <div className="mt-2 h-3 overflow-hidden rounded-full bg-zinc-800">
-                <div
-                  className="h-full rounded-full bg-red-500"
-                  style={{ width: `${Math.min((pool.totalBorrows / pool.borrowCapCeiling) * 100, 100)}%` }}
-                />
-              </div>
-              <div className="mt-1 flex justify-between text-xs text-zinc-600">
-                <span>{formatNumber(pool.totalBorrows)} {symbol}</span>
-                <span>{formatNumber(pool.borrowCapCeiling)} {symbol}</span>
-              </div>
-            </div>
-          ) : (
-            <p className="mt-4 text-sm text-zinc-600">No cap data</p>
-          )}
-        </div>
+        <SimpleLineChart
+          data={supplyCapHistory}
+          lines={[{ dataKey: 'utilization', color: '#22C55E', name: 'Supply Cap Used' }]}
+          title="Supply Cap Utilization (90d)"
+          yFormatter={(v) => formatPercent(v * 100)}
+        />
+        <SimpleLineChart
+          data={borrowCapHistory}
+          lines={[{ dataKey: 'utilization', color: '#EF4444', name: 'Borrow Cap Used' }]}
+          title="Borrow Cap Utilization (90d)"
+          yFormatter={(v) => formatPercent(v * 100)}
+        />
       </div>
 
       {/* Row 6: Donut charts */}
