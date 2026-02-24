@@ -47,8 +47,9 @@ export default function WalletDetailsPage() {
     }
 
     const { portfolio, liquidations } = data;
-    const hfColor = healthFactorColor(portfolio.healthFactor);
-    const hfLabel = healthFactorLabel(portfolio.healthFactor);
+    const hfValue = portfolio.healthFactor ?? 999;
+    const hfColor = healthFactorColor(hfValue);
+    const hfLabel = healthFactorLabel(hfValue);
 
     // Pagination slice
     const paginatedLiquidations = liquidations.slice((page - 1) * limit, page * limit);
@@ -81,7 +82,7 @@ export default function WalletDetailsPage() {
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 <KpiCard
                     title="Health Factor"
-                    value={portfolio.healthFactor >= 100 ? '99+' : formatNumber(portfolio.healthFactor, 2)}
+                    value={hfValue >= 999 ? '∞' : formatNumber(hfValue, 2)}
                     subtitle={
                         <span style={{ color: hfColor }} className="font-medium">
                             {hfLabel}

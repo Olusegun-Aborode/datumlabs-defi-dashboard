@@ -16,7 +16,9 @@
     "setup-qstash": "tsx scripts/setup-qstash.ts"
   },
   "dependencies": {
+    "@naviprotocol/wallet-client": "^1.4.8",
     "@prisma/client": "^6.4.1",
+    "@sentry/nextjs": "^10.39.0",
     "bignumber.js": "^9.3.1",
     "clsx": "^2.1.1",
     "lucide-react": "^0.575.0",

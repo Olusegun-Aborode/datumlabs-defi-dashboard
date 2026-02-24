@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getDb } from '@/lib/db';
-import { getFullnodeUrl, SuiClient } from '@mysten/sui.js/client';
-import { getAddressPortfolio } from 'navi-sdk';
+import { getFullnodeUrl, SuiClient } from '@mysten/sui/client';
+import { getLendingState, getHealthFactor } from '@naviprotocol/lending';
 import { POOL_CONFIGS } from '@/lib/constants';
 
 export const dynamic = 'force-dynamic';
@@ -33,7 +33,14 @@ export async function GET(req: Request, { params }: { params: Promise<{ address:
 
         try {
             const client = new SuiClient({ url: getFullnodeUrl('mainnet') });
-            const portfolio = await getAddressPortfolio(address, false, client as any);
+
+            // Using the official SDK calls directly without WalletClient
+            const [lendingState, protocolHealthFactor] = await Promise.all([
+                getLendingState(address, { client, env: 'prod' }),
+                getHealthFactor(address, { client, env: 'prod' })
+            ]);
+
+            freshHealthFactor = protocolHealthFactor;
 
             const poolSnapshots = await db.poolSnapshot.findMany({
                 orderBy: { timestamp: 'desc' },
@@ -41,15 +48,12 @@ export async function GET(req: Request, { params }: { params: Promise<{ address:
             });
             const poolMap = new Map<string, any>(poolSnapshots.map((p: any) => [p.symbol, p]));
 
-            let totalCollateralAdjusted = 0;
-            let totalBorrowAdjusted = 0;
-
-            for (const [rawSymbol, balances] of portfolio.entries()) {
-                const rawSupply = Number(balances.supplyBalance ?? 0);
-                const rawBorrow = Number(balances.borrowBalance ?? 0);
+            for (const position of lendingState) {
+                const rawSupply = Number(position.supplyBalance ?? 0);
+                const rawBorrow = Number(position.borrowBalance ?? 0);
                 if (rawSupply === 0 && rawBorrow === 0) continue;
 
-                let symbol = rawSymbol;
+                let symbol = position.pool.token.symbol;
                 if (symbol === 'Sui') symbol = 'SUI';
                 if (symbol === 'nUSDC') symbol = 'USDC';
                 if (symbol === 'nUSDT') symbol = 'wUSDT';
@@ -58,7 +62,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ address:
                 if (symbol === 'EnzoBTC') symbol = 'enzoBTC';
                 if (symbol === 'LZWBTC') symbol = 'wBTC';
 
-                const decimals = POOL_CONFIGS[symbol]?.decimals ?? 9;
+                const decimals = POOL_CONFIGS[symbol]?.decimals ?? position.pool.token.decimals ?? 9;
                 const supplyAmt = rawSupply / Math.pow(10, decimals);
                 const borrowAmt = rawBorrow / Math.pow(10, decimals);
 
@@ -68,20 +72,14 @@ export async function GET(req: Request, { params }: { params: Promise<{ address:
                 if (supplyAmt > 0) {
                     const valueUsd = supplyAmt * price;
                     freshCollateralUsd += valueUsd;
-                    totalCollateralAdjusted += valueUsd * 0.8;
                     freshCollateralAssets.push({ symbol, amount: supplyAmt, valueUsd });
                 }
 
                 if (borrowAmt > 0) {
                     const valueUsd = borrowAmt * price;
                     freshBorrowUsd += valueUsd;
-                    totalBorrowAdjusted += valueUsd;
                     freshBorrowAssets.push({ symbol, amount: borrowAmt, valueUsd });
                 }
-            }
-
-            if (totalBorrowAdjusted > 0) {
-                freshHealthFactor = totalCollateralAdjusted / totalBorrowAdjusted;
             }
 
             freshPortfolio = {
@@ -91,6 +89,10 @@ export async function GET(req: Request, { params }: { params: Promise<{ address:
                 collateralAssets: freshCollateralAssets,
                 borrowAssets: freshBorrowAssets,
             };
+
+            if (Number.isNaN(freshHealthFactor) || !isFinite(freshHealthFactor) || freshHealthFactor < 0) {
+                freshHealthFactor = 999;
+            }
 
             // Also proactively upsert to DB
             await db.walletPosition.upsert({
@@ -114,7 +116,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ address:
                     lastUpdated: new Date()
                 }
             });
-        } catch (sdkError) {
+        } catch (sdkError: any) {
             console.error('Error fetching SDK data:', sdkError);
         }
 
