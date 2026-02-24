@@ -32,6 +32,8 @@ export default function DonutChart({ data, title }: DonutChartProps) {
     );
   }
 
+  const totalValue = data.reduce((sum, item) => sum + item.value, 0);
+
   return (
     <div className="rounded-2xl border border-white/5 bg-black/40 backdrop-blur-xl p-6 shadow-2xl transition-all duration-300 hover:border-white/10 hover:bg-black/50">
       <h3 className="mb-4 text-sm font-medium text-zinc-400">{title}</h3>
@@ -74,7 +76,7 @@ export default function DonutChart({ data, title }: DonutChartProps) {
             wrapperStyle={{ fontSize: 11, color: '#a1a1aa' }}
             formatter={(value: string, entry: any) => {
               const { payload } = entry;
-              const percent = payload.percent ? (payload.percent * 100).toFixed(1) + '%' : '';
+              const percent = totalValue > 0 ? ((payload.value / totalValue) * 100).toFixed(1) + '%' : '0%';
               return (
                 <span className="text-zinc-300">
                   {value} <span className="text-zinc-500">({formatUsd(payload.value, true)} - {percent})</span>
