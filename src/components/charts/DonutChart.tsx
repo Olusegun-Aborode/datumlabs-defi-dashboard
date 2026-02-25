@@ -3,7 +3,6 @@
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { POOL_CONFIGS } from '@/lib/constants';
 import { formatUsd } from '@/lib/utils';
-import Watermark from './Watermark';
 
 interface DonutChartProps {
   data: Array<{ name: string; value: number }>;
@@ -36,60 +35,57 @@ export default function DonutChart({ data, title }: DonutChartProps) {
   const totalValue = data.reduce((sum, item) => sum + item.value, 0);
 
   return (
-    <div className="rounded-2xl border border-white/5 bg-black/40 backdrop-blur-xl p-6 shadow-2xl transition-all duration-300 hover:border-white/10 hover:bg-black/50 relative overflow-hidden">
-      <Watermark />
-      <h3 className="mb-4 text-sm font-medium text-zinc-400 relative z-10">{title}</h3>
-      <div className="relative z-10 h-[250px]">
-        <ResponsiveContainer width="100%" height="100%">
-          <PieChart>
-            <Pie
-              data={data}
-              cx="50%"
-              cy="50%"
-              innerRadius={60}
-              outerRadius={90}
-              paddingAngle={2}
-              dataKey="value"
-            >
-              {data.map((entry, index) => (
-                <Cell
-                  key={entry.name}
-                  fill={PREMIUM_COLORS[index % PREMIUM_COLORS.length]}
-                  stroke="transparent"
-                />
-              ))}
-            </Pie>
-            <Tooltip
-              contentStyle={{
-                backgroundColor: 'rgba(0, 0, 0, 0.7)',
-                backdropFilter: 'blur(12px)',
-                border: '1px solid rgba(255,255,255,0.1)',
-                borderRadius: 12,
-                fontSize: 12,
-                color: '#fff',
-                boxShadow: '0 8px 32px rgba(0,0,0,0.4)'
-              }}
-              itemStyle={{ color: '#fff' }}
-              formatter={(value: number | undefined, name: string | undefined) => [formatUsd(value ?? 0, true), name ?? '']}
-            />
-            <Legend
-              layout="vertical"
-              verticalAlign="middle"
-              align="right"
-              wrapperStyle={{ fontSize: 11, color: '#a1a1aa' }}
-              formatter={(value: string, entry: any) => {
-                const { payload } = entry;
-                const percent = totalValue > 0 ? ((payload.value / totalValue) * 100).toFixed(1) + '%' : '0%';
-                return (
-                  <span className="text-zinc-300">
-                    {value} <span className="text-zinc-500">({formatUsd(payload.value, true)} - {percent})</span>
-                  </span>
-                );
-              }}
-            />
-          </PieChart>
-        </ResponsiveContainer>
-      </div>
+    <div className="rounded-2xl border border-white/5 bg-black/40 backdrop-blur-xl p-6 shadow-2xl transition-all duration-300 hover:border-white/10 hover:bg-black/50">
+      <h3 className="mb-4 text-sm font-medium text-zinc-400">{title}</h3>
+      <ResponsiveContainer width="100%" height={250}>
+        <PieChart>
+          <Pie
+            data={data}
+            cx="50%"
+            cy="50%"
+            innerRadius={60}
+            outerRadius={90}
+            paddingAngle={2}
+            dataKey="value"
+          >
+            {data.map((entry, index) => (
+              <Cell
+                key={entry.name}
+                fill={PREMIUM_COLORS[index % PREMIUM_COLORS.length]}
+                stroke="transparent"
+              />
+            ))}
+          </Pie>
+          <Tooltip
+            contentStyle={{
+              backgroundColor: 'rgba(0, 0, 0, 0.7)',
+              backdropFilter: 'blur(12px)',
+              border: '1px solid rgba(255,255,255,0.1)',
+              borderRadius: 12,
+              fontSize: 12,
+              color: '#fff',
+              boxShadow: '0 8px 32px rgba(0,0,0,0.4)'
+            }}
+            itemStyle={{ color: '#fff' }}
+            formatter={(value: number | undefined, name: string | undefined) => [formatUsd(value ?? 0, true), name ?? '']}
+          />
+          <Legend
+            layout="vertical"
+            verticalAlign="middle"
+            align="right"
+            wrapperStyle={{ fontSize: 11, color: '#a1a1aa' }}
+            formatter={(value: string, entry: any) => {
+              const { payload } = entry;
+              const percent = totalValue > 0 ? ((payload.value / totalValue) * 100).toFixed(1) + '%' : '0%';
+              return (
+                <span className="text-zinc-300">
+                  {value} <span className="text-zinc-500">({formatUsd(payload.value, true)} - {percent})</span>
+                </span>
+              );
+            }}
+          />
+        </PieChart>
+      </ResponsiveContainer>
     </div>
   );
 }
