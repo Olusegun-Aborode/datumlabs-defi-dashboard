@@ -2,12 +2,12 @@ import BigNumber from 'bignumber.js';
 import { RATE_SCALE, POOL_CONFIGS, type PoolConfig } from './constants';
 
 /**
- * Convert NAVI raw rate (1e27-scaled integer) to APY percentage.
- * Formula: APY = ((rate / 1e27 + 1)^365 - 1) * 100
+ * Convert NAVI raw annualized rate (1e27-scaled) to APY percentage.
+ * Dividing by RAY and ×100 matches NAVI's own UI — the rate is already
+ * annualized, so no further scaling or compounding is needed.
  */
 export function rateToApy(rawRate: string): number {
-  const rate = new BigNumber(rawRate).dividedBy(RATE_SCALE);
-  const apy = rate.plus(1).pow(365).minus(1).multipliedBy(100);
+  const apy = new BigNumber(rawRate).dividedBy(RATE_SCALE).multipliedBy(100);
   return parseFloat(apy.toFixed(4));
 }
 

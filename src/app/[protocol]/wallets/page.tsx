@@ -1,77 +1,78 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState } from 'react';
 import { useParams } from 'next/navigation';
+import { useQuery } from '@tanstack/react-query';
+import { TuiPanel, LoadingState, ErrorState } from '@datumlabs/dashboard-kit';
 import FilterBar from '@/components/FilterBar';
 import WalletsTable, { type WalletRow } from '@/components/tables/WalletsTable';
 
-const FILTER_FIELDS = [
-  { key: 'search', label: 'Wallet Address', type: 'text' as const, placeholder: '0x...' },
-  { key: 'collateral', label: 'Collateral Asset', type: 'select' as const },
-  { key: 'borrow', label: 'Borrow Asset', type: 'select' as const },
-  { key: 'minHf', label: 'Min HF', type: 'text' as const, placeholder: '0' },
-];
+function buildFilterFields(symbols: string[]) {
+  return [
+    { key: 'search', label: 'Wallet Address', type: 'text' as const, placeholder: '0x...' },
+    { key: 'collateral', label: 'Collateral Asset', type: 'select' as const, options: symbols },
+    { key: 'borrow', label: 'Borrow Asset', type: 'select' as const, options: symbols },
+    { key: 'minHf', label: 'Min HF', type: 'text' as const, placeholder: '0' },
+  ];
+}
+
+interface WalletsResponse {
+  wallets: WalletRow[];
+  total: number;
+}
 
 export default function WalletsPage() {
   const { protocol } = useParams<{ protocol: string }>();
   const [filters, setFilters] = useState<Record<string, string>>({});
-  const [wallets, setWallets] = useState<WalletRow[]>([]);
-  const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
-  const [loading, setLoading] = useState(true);
   const limit = 25;
 
-  const fetchData = useCallback(() => {
-    setLoading(true);
-    const params = new URLSearchParams({ page: String(page), limit: String(limit) });
-    if (filters.search) params.set('search', filters.search);
-    if (filters.collateral) params.set('collateral', filters.collateral);
-    if (filters.borrow) params.set('borrow', filters.borrow);
-    if (filters.minHf) params.set('minHf', filters.minHf);
+  const symbolsQuery = useQuery<{ symbols: string[] }>({
+    queryKey: ['poolSymbols', protocol],
+    queryFn: () => fetch(`/api/${protocol}/pools`).then((r) => r.json()),
+  });
 
-    fetch(`/api/${protocol}/wallets?${params}`)
-      .then((r) => r.json())
-      .then((data) => {
-        setWallets(data.wallets ?? []);
-        setTotal(data.total ?? 0);
-      })
-      .catch(console.error)
-      .finally(() => setLoading(false));
-  }, [protocol, page, filters]);
-
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+  const walletsQuery = useQuery<WalletsResponse>({
+    queryKey: ['wallets', protocol, page, filters],
+    queryFn: () => {
+      const params = new URLSearchParams({ page: String(page), limit: String(limit) });
+      for (const [k, v] of Object.entries(filters)) if (v) params.set(k, v);
+      return fetch(`/api/${protocol}/wallets?${params}`).then((r) => r.json());
+    },
+  });
 
   function handleFilterChange(key: string, value: string) {
     setFilters((prev) => ({ ...prev, [key]: value }));
     setPage(1);
   }
 
+  const symbols = symbolsQuery.data?.symbols ?? [];
+
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-white">Wallet Explorer</h1>
-        <p className="text-sm text-zinc-400">
-          Browse borrower positions and health factors
-        </p>
-      </div>
+    <div className="space-y-4">
+      <TuiPanel title="Filters" badge={`${symbols.length} ASSETS`} noPadding>
+        <FilterBar filters={filters} onChange={handleFilterChange} fields={buildFilterFields(symbols)} />
+      </TuiPanel>
 
-      <FilterBar filters={filters} onChange={handleFilterChange} fields={FILTER_FIELDS} />
-
-      {loading ? (
-        <div className="flex h-64 items-center justify-center text-zinc-500">
-          Loading wallet data...
-        </div>
-      ) : (
-        <WalletsTable
-          data={wallets}
-          total={total}
-          page={page}
-          limit={limit}
-          onPageChange={setPage}
-        />
-      )}
+      <TuiPanel
+        title="Wallet Explorer"
+        badge={walletsQuery.data ? `${walletsQuery.data.total} BORROWERS` : undefined}
+        noPadding
+      >
+        {walletsQuery.isPending ? (
+          <LoadingState />
+        ) : walletsQuery.isError ? (
+          <ErrorState message="Failed to load wallets." onRetry={() => walletsQuery.refetch()} />
+        ) : (
+          <WalletsTable
+            data={walletsQuery.data.wallets ?? []}
+            total={walletsQuery.data.total ?? 0}
+            page={page}
+            limit={limit}
+            onPageChange={setPage}
+          />
+        )}
+      </TuiPanel>
     </div>
   );
 }

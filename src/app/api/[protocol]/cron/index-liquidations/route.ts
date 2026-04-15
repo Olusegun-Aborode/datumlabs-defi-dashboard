@@ -1,7 +1,9 @@
 import { NextResponse } from 'next/server';
 import { CRON_SECRET } from '@/lib/constants';
 import { isValidProtocol } from '@/protocols/registry';
-import { NAVI_EVENT_TYPES, NAVI_POOL_ID_TO_SYMBOL, NAVI_ASSET_MAP } from '@/protocols/navi/config';
+import { NAVI_EVENT_TYPES } from '@/protocols/navi/config';
+import { getNaviPoolRegistry } from '@/protocols/navi/poolRegistry';
+import { parseLiquidationEvent } from '@/protocols/navi/events';
 import { queryEvents } from '@/lib/rpc';
 import { getDb } from '@/lib/db';
 import BigNumber from 'bignumber.js';
@@ -39,8 +41,11 @@ export async function GET(
   }
 
   try {
+    const registry = await getNaviPoolRegistry();
+
     let cursor: { txDigest: string; eventSeq: string } | null = null;
     let totalIndexed = 0;
+    let skippedUnknown = 0;
     let hasMore = true;
 
     const latest = await db.liquidationEvent.findFirst({
@@ -67,45 +72,50 @@ export async function GET(
           break;
         }
 
-        const p = evt.parsedJson;
-        const collateralPoolId = Number(p.collateral_asset ?? p.reserve ?? 0);
-        const debtPoolId = Number(p.debt_asset ?? 0);
-        const collateralSymbol = NAVI_POOL_ID_TO_SYMBOL[collateralPoolId] ?? 'UNKNOWN';
-        const debtSymbol = NAVI_POOL_ID_TO_SYMBOL[debtPoolId] ?? 'UNKNOWN';
+        let p;
+        try {
+          p = parseLiquidationEvent(evt.parsedJson);
+        } catch (err) {
+          console.warn(
+            `[index-liquidations] skipping ${eventId}: ${err instanceof Error ? err.message : err}`
+          );
+          skippedUnknown++;
+          continue;
+        }
 
-        const collateralDecimals = NAVI_ASSET_MAP[collateralSymbol]?.decimals ?? 9;
-        const debtDecimals = NAVI_ASSET_MAP[debtSymbol]?.decimals ?? 9;
+        const collateralPool = registry[p.collateral_asset];
+        const debtPool = registry[p.debt_asset];
 
-        const collateralAmount = new BigNumber(String(p.collateral_amount ?? 0))
-          .dividedBy(new BigNumber(10).pow(collateralDecimals))
-          .toNumber();
-        const debtAmount = new BigNumber(String(p.debt_amount ?? 0))
-          .dividedBy(new BigNumber(10).pow(debtDecimals))
-          .toNumber();
+        if (!collateralPool || !debtPool) {
+          console.warn(
+            `[index-liquidations] skipping ${eventId}: unknown pool id(s) collateral=${p.collateral_asset} debt=${p.debt_asset}`
+          );
+          skippedUnknown++;
+          continue;
+        }
 
-        const collateralPrice = new BigNumber(String(p.collateral_price ?? 0))
-          .dividedBy(1e18)
-          .toNumber();
-        const debtPrice = new BigNumber(String(p.debt_price ?? 0))
-          .dividedBy(1e18)
-          .toNumber();
+        // Amounts and prices are BOTH scaled by the asset's decimals.
+        const cScale = new BigNumber(10).pow(collateralPool.decimals);
+        const dScale = new BigNumber(10).pow(debtPool.decimals);
 
-        const treasuryAmount = new BigNumber(String(p.treasury ?? 0))
-          .dividedBy(new BigNumber(10).pow(collateralDecimals))
-          .toNumber();
+        const collateralAmount = new BigNumber(p.collateral_amount).dividedBy(cScale).toNumber();
+        const debtAmount       = new BigNumber(p.debt_amount).dividedBy(dScale).toNumber();
+        const collateralPrice  = new BigNumber(p.collateral_price).dividedBy(cScale).toNumber();
+        const debtPrice        = new BigNumber(p.debt_price).dividedBy(dScale).toNumber();
+        const treasuryAmount   = new BigNumber(p.treasury).dividedBy(cScale).toNumber();
 
         rows.push({
           id: eventId,
           protocol: slug,
           txDigest: evt.id.txDigest,
           timestamp: new Date(Number(evt.timestampMs)),
-          liquidator: String(p.sender ?? evt.sender),
-          borrower: String(p.user ?? ''),
-          collateralAsset: collateralSymbol,
+          liquidator: p.sender,
+          borrower: p.user,
+          collateralAsset: collateralPool.symbol,
           collateralAmount,
           collateralPrice,
           collateralUsd: collateralAmount * collateralPrice,
-          debtAsset: debtSymbol,
+          debtAsset: debtPool.symbol,
           debtAmount,
           debtPrice,
           debtUsd: debtAmount * debtPrice,
@@ -129,6 +139,7 @@ export async function GET(
       success: true,
       protocol: slug,
       indexed: totalIndexed,
+      skippedUnknown,
       timestamp: new Date().toISOString(),
     });
   } catch (error) {

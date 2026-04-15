@@ -28,22 +28,32 @@ async function main() {
 
   console.log(`Found ${tvlHistory.length} daily TVL data points`);
 
+  const PROTOCOL = 'navi';
   let inserted = 0;
+  let failed = 0;
   for (const entry of tvlHistory) {
+    if (typeof entry?.totalLiquidityUSD !== 'number' || !Number.isFinite(entry.totalLiquidityUSD)) {
+      continue;
+    }
     const date = new Date(entry.date * 1000);
-    date.setHours(0, 0, 0, 0);
+    date.setUTCHours(0, 0, 0, 0);
 
     try {
       await db.defillamaTvl.upsert({
-        where: { date },
-        create: { date, tvlUsd: entry.totalLiquidityUSD },
+        where: { protocol_date: { protocol: PROTOCOL, date } },
+        create: { protocol: PROTOCOL, date, tvlUsd: entry.totalLiquidityUSD },
         update: { tvlUsd: entry.totalLiquidityUSD },
       });
       inserted++;
-    } catch {
-      // skip
+    } catch (err) {
+      failed++;
+      console.warn(
+        `  skip ${date.toISOString().slice(0, 10)}:`,
+        err instanceof Error ? err.message : err
+      );
     }
   }
+  if (failed > 0) console.log(`${failed} rows failed to insert`);
 
   console.log(`Done! Inserted/updated ${inserted} TVL records`);
   await db.$disconnect();

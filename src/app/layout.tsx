@@ -1,10 +1,16 @@
 import type { Metadata } from 'next';
+import { JetBrains_Mono } from 'next/font/google';
+import { Providers } from '@datumlabs/dashboard-kit';
 import './globals.css';
-import Navbar from '@/components/Navbar';
+
+const jetbrainsMono = JetBrains_Mono({
+  subsets: ['latin'],
+  variable: '--font-mono',
+});
 
 export const metadata: Metadata = {
-  title: 'NAVI Lending Dashboard',
-  description: 'Analytics dashboard for the NAVI Protocol lending markets on Sui',
+  title: 'NAVI Lending Terminal — Datum Labs',
+  description: 'Real-time NAVI Protocol lending analytics on Sui',
 };
 
 export default function RootLayout({
@@ -14,11 +20,11 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className="dark">
-      <body className="antialiased min-h-screen bg-zinc-950">
-        <Navbar />
-        <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6">
-          {children}
-        </main>
+      <body
+        suppressHydrationWarning
+        className={`${jetbrainsMono.variable} font-mono antialiased scanlines min-h-screen`}
+      >
+        <Providers>{children}</Providers>
       </body>
     </html>
   );

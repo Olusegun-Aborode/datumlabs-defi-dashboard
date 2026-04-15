@@ -1,7 +1,5 @@
 'use client';
 
-import { POOL_SYMBOLS } from '@/lib/constants';
-
 interface FilterBarProps {
   filters: Record<string, string>;
   onChange: (key: string, value: string) => void;
@@ -15,20 +13,36 @@ interface FilterBarProps {
 }
 
 export default function FilterBar({ filters, onChange, fields }: FilterBarProps) {
+  const inputClass =
+    'h-8 rounded px-2 text-xs focus:outline-none transition-colors';
+  const inputStyle: React.CSSProperties = {
+    background: 'var(--background)',
+    color: 'var(--foreground)',
+    border: '1px solid var(--border-bright)',
+  };
+
   return (
-    <div className="flex flex-wrap items-end gap-3 rounded-xl border border-zinc-800 bg-zinc-900/50 p-4">
+    <div className="flex flex-wrap items-end gap-3 p-3">
       {fields.map((field) => (
         <div key={field.key} className="flex flex-col gap-1">
-          <label className="text-xs font-medium text-zinc-500">{field.label}</label>
+          <label
+            className="text-[10px] uppercase tracking-[0.1em]"
+            style={{ color: 'var(--text-muted)' }}
+          >
+            {field.label}
+          </label>
           {field.type === 'select' ? (
             <select
               value={filters[field.key] ?? ''}
               onChange={(e) => onChange(field.key, e.target.value)}
-              className="h-9 rounded-lg border border-zinc-700 bg-zinc-800 px-3 text-sm text-white outline-none focus:border-blue-500"
+              className={inputClass}
+              style={inputStyle}
             >
               <option value="">All</option>
-              {(field.options ?? POOL_SYMBOLS).map((opt) => (
-                <option key={opt} value={opt}>{opt}</option>
+              {(field.options ?? []).map((opt) => (
+                <option key={opt} value={opt}>
+                  {opt}
+                </option>
               ))}
             </select>
           ) : field.type === 'date' ? (
@@ -36,7 +50,8 @@ export default function FilterBar({ filters, onChange, fields }: FilterBarProps)
               type="date"
               value={filters[field.key] ?? ''}
               onChange={(e) => onChange(field.key, e.target.value)}
-              className="h-9 rounded-lg border border-zinc-700 bg-zinc-800 px-3 text-sm text-white outline-none focus:border-blue-500"
+              className={inputClass}
+              style={inputStyle}
             />
           ) : (
             <input
@@ -44,7 +59,8 @@ export default function FilterBar({ filters, onChange, fields }: FilterBarProps)
               value={filters[field.key] ?? ''}
               onChange={(e) => onChange(field.key, e.target.value)}
               placeholder={field.placeholder ?? ''}
-              className="h-9 w-44 rounded-lg border border-zinc-700 bg-zinc-800 px-3 text-sm text-white placeholder-zinc-600 outline-none focus:border-blue-500"
+              className={`${inputClass} w-44 placeholder:text-[var(--text-muted)]`}
+              style={inputStyle}
             />
           )}
         </div>

@@ -26,7 +26,7 @@ interface NaviApiPool {
   token: {
     symbol: string;
     coinType: string;
-    decimal: number;
+    decimals: number;
   };
   oracle: {
     price: number;
@@ -100,14 +100,15 @@ function toFloat(value: string, divisor: BigNumber): number {
 }
 
 /**
- * Convert a per-second rate (scaled by 1e27) to APY percentage.
- * The SDK returns `currentSupplyRate / 1e27` as a decimal rate, then
- * multiplies by 100 for display. For a more accurate APY we compound daily.
+ * Convert NAVI's raw rate to APY percentage.
+ *
+ * NAVI's currentSupplyRate / currentBorrowRate are already annualized
+ * decimals scaled by 1e27 — so dividing by RAY and multiplying by 100
+ * yields the APY in percent. (Compounding daily or annualizing per-second
+ * produced absurd numbers on high-utilization pools.)
  */
 function rateToApyPercent(rawRate: string): number {
-  const dailyRate = new BigNumber(rawRate).dividedBy(RAY);
-  // Compound daily for 365 days
-  const apy = dailyRate.plus(1).pow(365).minus(1).multipliedBy(100);
+  const apy = new BigNumber(rawRate).dividedBy(RAY).multipliedBy(100);
   return parseFloat(apy.toFixed(4));
 }
 
@@ -138,7 +139,7 @@ export async function fetchAllPools(): Promise<NaviPoolData[]> {
     return json.data.map((pool) => {
       const symbol = pool.token.symbol;
       const price = pool.oracle.price;
-      const decimals = pool.token.decimal;
+      const decimals = pool.token.decimals;
 
       // Match official SDK: divide raw amounts by 1e9, then multiply by index
       const rawSupply = toFloat(pool.totalSupply, SUPPLY_BORROW_SCALE);

@@ -39,9 +39,7 @@ export default function InterestRateCurve({
   });
 
   return (
-    <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-6">
-      <h3 className="mb-4 text-sm font-medium text-zinc-400">Interest Rate Curve</h3>
-      <ResponsiveContainer width="100%" height={240}>
+    <ResponsiveContainer width="100%" height="100%">
         <LineChart data={data} margin={{ top: 5, right: 5, bottom: 5, left: 5 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
           <XAxis
@@ -104,6 +102,5 @@ export default function InterestRateCurve({
           />
         </LineChart>
       </ResponsiveContainer>
-    </div>
   );
 }

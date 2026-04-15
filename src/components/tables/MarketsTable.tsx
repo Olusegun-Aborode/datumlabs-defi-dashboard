@@ -2,12 +2,12 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { cn } from '@/lib/utils';
-import { formatUsd, formatNumber, formatPercent } from '@/lib/utils';
+import { cn, formatUsd, formatNumber, formatPercent, getAssetColor } from '@/lib/utils';
 import { ChevronUp, ChevronDown } from 'lucide-react';
 
 export interface MarketRow {
   symbol: string;
+  poolId?: number;
   totalSupply: number;
   totalSupplyUsd: number;
   totalBorrows: number;
@@ -40,20 +40,14 @@ export default function MarketsTable({ data, protocolSlug }: MarketsTableProps) 
   });
 
   function handleSort(key: SortKey) {
-    if (sortKey === key) {
-      setSortAsc(!sortAsc);
-    } else {
-      setSortKey(key);
-      setSortAsc(false);
-    }
+    if (sortKey === key) setSortAsc(!sortAsc);
+    else { setSortKey(key); setSortAsc(false); }
   }
 
-  const SortIcon = ({ col }: { col: SortKey }) => {
-    if (sortKey !== col) return null;
-    return sortAsc ? <ChevronUp className="inline h-3 w-3" /> : <ChevronDown className="inline h-3 w-3" />;
-  };
+  const SortIcon = ({ col }: { col: SortKey }) =>
+    sortKey !== col ? null : sortAsc ? <ChevronUp className="inline h-3 w-3" /> : <ChevronDown className="inline h-3 w-3" />;
 
-  const columns: Array<{ key: SortKey; label: string; align?: string }> = [
+  const columns: Array<{ key: SortKey; label: string; align?: 'right' }> = [
     { key: 'symbol', label: 'Market' },
     { key: 'totalSupplyUsd', label: 'Total Supply', align: 'right' },
     { key: 'totalBorrowsUsd', label: 'Total Borrows', align: 'right' },
@@ -64,17 +58,14 @@ export default function MarketsTable({ data, protocolSlug }: MarketsTableProps) 
   ];
 
   return (
-    <div className="overflow-x-auto rounded-xl border border-zinc-800 bg-zinc-900/50">
-      <table className="w-full text-sm">
+    <div className="overflow-x-auto">
+      <table className="data-table">
         <thead>
-          <tr className="border-b border-zinc-800">
+          <tr>
             {columns.map((col) => (
               <th
                 key={col.key}
-                className={cn(
-                  'cursor-pointer px-4 py-3 font-medium text-zinc-400 hover:text-white transition-colors',
-                  col.align === 'right' ? 'text-right' : 'text-left'
-                )}
+                className={cn('cursor-pointer transition-colors hover:text-white', col.align === 'right' && 'text-right')}
                 onClick={() => handleSort(col.key)}
               >
                 {col.label} <SortIcon col={col.key} />
@@ -85,52 +76,59 @@ export default function MarketsTable({ data, protocolSlug }: MarketsTableProps) 
         <tbody>
           {sorted.length === 0 ? (
             <tr>
-              <td colSpan={columns.length} className="px-4 py-12 text-center text-zinc-600">
+              <td colSpan={columns.length} className="px-4 py-12 text-center" style={{ color: 'var(--text-muted)' }}>
                 No pool data available — connect RPC to fetch live data
               </td>
             </tr>
           ) : (
             sorted.map((row) => (
-              <tr
-                key={row.symbol}
-                className="border-b border-zinc-800/50 hover:bg-zinc-800/30 transition-colors"
-              >
-                <td className="px-4 py-3">
-                  <Link href={protocolSlug ? `/${protocolSlug}/markets/${row.symbol}` : `/markets/${row.symbol}`} className="flex items-center gap-2 text-white hover:text-blue-400">
-                    <span
-                      className="inline-block h-3 w-3 rounded-full"
-                      style={{ backgroundColor: '#666' }}
-                    />
+              <tr key={row.poolId ?? row.symbol}>
+                <td>
+                  <Link
+                    href={protocolSlug ? `/${protocolSlug}/markets/${row.symbol}` : `/markets/${row.symbol}`}
+                    className="flex items-center gap-2 hover:text-[var(--accent-orange)]"
+                    style={{ color: 'var(--foreground)' }}
+                  >
+                    <span className="token-dot" style={{ backgroundColor: getAssetColor(row.symbol) }} />
                     <span className="font-medium">{row.symbol}</span>
                   </Link>
                 </td>
-                <td className="px-4 py-3 text-right text-zinc-300">
+                <td className="text-right">
                   <div>{formatUsd(row.totalSupplyUsd, true)}</div>
-                  <div className="text-xs text-zinc-500">{formatNumber(row.totalSupply)} {row.symbol}</div>
+                  <div className="text-[10px]" style={{ color: 'var(--text-muted)' }}>
+                    {formatNumber(row.totalSupply)} {row.symbol}
+                  </div>
                 </td>
-                <td className="px-4 py-3 text-right text-zinc-300">
+                <td className="text-right">
                   <div>{formatUsd(row.totalBorrowsUsd, true)}</div>
-                  <div className="text-xs text-zinc-500">{formatNumber(row.totalBorrows)} {row.symbol}</div>
+                  <div className="text-[10px]" style={{ color: 'var(--text-muted)' }}>
+                    {formatNumber(row.totalBorrows)} {row.symbol}
+                  </div>
                 </td>
-                <td className="px-4 py-3 text-right text-zinc-300">
+                <td className="text-right">
                   <div>{formatUsd(row.availableLiquidityUsd, true)}</div>
-                  <div className="text-xs text-zinc-500">{formatNumber(row.availableLiquidity)} {row.symbol}</div>
+                  <div className="text-[10px]" style={{ color: 'var(--text-muted)' }}>
+                    {formatNumber(row.availableLiquidity)} {row.symbol}
+                  </div>
                 </td>
-                <td className="px-4 py-3 text-right text-green-400 font-medium">
+                <td className="text-right" style={{ color: 'var(--accent-green)' }}>
                   {formatPercent(row.supplyApy)}
                 </td>
-                <td className="px-4 py-3 text-right text-red-400 font-medium">
+                <td className="text-right" style={{ color: 'var(--accent-red)' }}>
                   {formatPercent(row.borrowApy)}
                 </td>
-                <td className="px-4 py-3 text-right">
+                <td className="text-right">
                   <div className="flex items-center justify-end gap-2">
-                    <div className="h-2 w-16 overflow-hidden rounded-full bg-zinc-800">
+                    <div className="tui-progress w-16">
                       <div
-                        className="h-full rounded-full bg-blue-500"
-                        style={{ width: `${Math.min(row.utilization, 100)}%` }}
+                        className="tui-progress-fill"
+                        style={{
+                          width: `${Math.min(row.utilization, 100)}%`,
+                          background: 'var(--accent-orange)',
+                        }}
                       />
                     </div>
-                    <span className="text-zinc-300">{formatPercent(row.utilization)}</span>
+                    <span>{formatPercent(row.utilization)}</span>
                   </div>
                 </td>
               </tr>

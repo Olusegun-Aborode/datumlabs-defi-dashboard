@@ -1,117 +1,108 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState } from 'react';
 import { useParams } from 'next/navigation';
+import { useQuery } from '@tanstack/react-query';
+import { TuiPanel, ChartWrapper, LoadingState, ErrorState } from '@datumlabs/dashboard-kit';
 import FilterBar from '@/components/FilterBar';
 import LiquidationsTable, { type LiquidationRow } from '@/components/tables/LiquidationsTable';
 import DonutChart from '@/components/charts/DonutChart';
 import SimpleBarChart from '@/components/charts/SimpleBarChart';
 
-const FILTER_FIELDS = [
-  { key: 'borrower', label: 'Borrower', type: 'text' as const, placeholder: '0x...' },
-  { key: 'liquidator', label: 'Liquidator', type: 'text' as const, placeholder: '0x...' },
-  { key: 'collateral', label: 'Collateral Asset', type: 'select' as const },
-  { key: 'debt', label: 'Debt Asset', type: 'select' as const },
-  { key: 'from', label: 'From Date', type: 'date' as const },
-  { key: 'to', label: 'To Date', type: 'date' as const },
-];
+function buildFilterFields(symbols: string[]) {
+  return [
+    { key: 'borrower', label: 'Borrower', type: 'text' as const, placeholder: '0x...' },
+    { key: 'liquidator', label: 'Liquidator', type: 'text' as const, placeholder: '0x...' },
+    { key: 'collateral', label: 'Collateral Asset', type: 'select' as const, options: symbols },
+    { key: 'debt', label: 'Debt Asset', type: 'select' as const, options: symbols },
+    { key: 'from', label: 'From Date', type: 'date' as const },
+    { key: 'to', label: 'To Date', type: 'date' as const },
+  ];
+}
 
 interface LiquidationStats {
   collateralDistribution: Array<{ asset: string; totalUsd: number }>;
   dailySeized: Array<{ date: string; totalUsd: number }>;
 }
+interface EventsResponse {
+  events: LiquidationRow[];
+  total: number;
+}
 
 export default function LiquidationPage() {
   const { protocol } = useParams<{ protocol: string }>();
   const [filters, setFilters] = useState<Record<string, string>>({});
-  const [events, setEvents] = useState<LiquidationRow[]>([]);
-  const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
-  const [stats, setStats] = useState<LiquidationStats>({
-    collateralDistribution: [],
-    dailySeized: [],
-  });
-  const [loading, setLoading] = useState(true);
   const limit = 25;
 
-  const fetchData = useCallback(() => {
-    setLoading(true);
-    const params = new URLSearchParams({ page: String(page), limit: String(limit) });
-    if (filters.borrower) params.set('borrower', filters.borrower);
-    if (filters.liquidator) params.set('liquidator', filters.liquidator);
-    if (filters.collateral) params.set('collateral', filters.collateral);
-    if (filters.debt) params.set('debt', filters.debt);
-    if (filters.from) params.set('from', filters.from);
-    if (filters.to) params.set('to', filters.to);
+  const symbolsQuery = useQuery<{ symbols: string[] }>({
+    queryKey: ['poolSymbols', protocol],
+    queryFn: () => fetch(`/api/${protocol}/pools`).then((r) => r.json()),
+  });
 
-    Promise.all([
-      fetch(`/api/${protocol}/liquidations?${params}`).then((r) => r.json()),
-      fetch(`/api/${protocol}/liquidations/stats`).then((r) => r.json()),
-    ])
-      .then(([eventsData, statsData]) => {
-        setEvents(eventsData.events ?? []);
-        setTotal(eventsData.total ?? 0);
-        setStats(statsData);
-      })
-      .catch(console.error)
-      .finally(() => setLoading(false));
-  }, [protocol, page, filters]);
+  const eventsQuery = useQuery<EventsResponse>({
+    queryKey: ['liquidations', protocol, page, filters],
+    queryFn: () => {
+      const params = new URLSearchParams({ page: String(page), limit: String(limit) });
+      for (const [k, v] of Object.entries(filters)) if (v) params.set(k, v);
+      return fetch(`/api/${protocol}/liquidations?${params}`).then((r) => r.json());
+    },
+  });
 
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+  const statsQuery = useQuery<LiquidationStats>({
+    queryKey: ['liquidationStats', protocol],
+    queryFn: () => fetch(`/api/${protocol}/liquidations/stats`).then((r) => r.json()),
+  });
 
   function handleFilterChange(key: string, value: string) {
     setFilters((prev) => ({ ...prev, [key]: value }));
     setPage(1);
   }
 
-  const donutData = stats.collateralDistribution.map((d) => ({
+  const symbols = symbolsQuery.data?.symbols ?? [];
+  const donutData = (statsQuery.data?.collateralDistribution ?? []).map((d) => ({
     name: d.asset,
     value: d.totalUsd,
   }));
-
-  const barData = stats.dailySeized.map((d) => ({
+  const barData = (statsQuery.data?.dailySeized ?? []).map((d) => ({
     date: d.date,
     value: d.totalUsd,
   }));
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-white">Liquidation Events</h1>
-        <p className="text-sm text-zinc-400">
-          Browse on-chain liquidation activity across markets
-        </p>
-      </div>
-
-      <FilterBar filters={filters} onChange={handleFilterChange} fields={FILTER_FIELDS} />
+    <div className="space-y-4">
+      <TuiPanel title="Filters" badge={`${symbols.length} ASSETS`} noPadding>
+        <FilterBar filters={filters} onChange={handleFilterChange} fields={buildFilterFields(symbols)} />
+      </TuiPanel>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <DonutChart
-          data={donutData}
-          title="Collateral Seized Distribution (30d)"
-        />
-        <SimpleBarChart
-          data={barData}
-          title="Daily Collateral Seized (30d)"
-          color="#EF4444"
-        />
+        <ChartWrapper title="Collateral Seized Distribution" badge="30D">
+          <DonutChart data={donutData} />
+        </ChartWrapper>
+        <ChartWrapper title="Daily Collateral Seized" badge="30D">
+          <SimpleBarChart data={barData} color="var(--accent-red)" />
+        </ChartWrapper>
       </div>
 
-      {loading ? (
-        <div className="flex h-64 items-center justify-center text-zinc-500">
-          Loading liquidation events...
-        </div>
-      ) : (
-        <LiquidationsTable
-          data={events}
-          total={total}
-          page={page}
-          limit={limit}
-          onPageChange={setPage}
-        />
-      )}
+      <TuiPanel
+        title="Liquidation Events"
+        badge={eventsQuery.data ? `${eventsQuery.data.total} TOTAL` : undefined}
+        noPadding
+      >
+        {eventsQuery.isPending ? (
+          <LoadingState />
+        ) : eventsQuery.isError ? (
+          <ErrorState message="Failed to load events." onRetry={() => eventsQuery.refetch()} />
+        ) : (
+          <LiquidationsTable
+            data={eventsQuery.data.events ?? []}
+            total={eventsQuery.data.total ?? 0}
+            page={page}
+            limit={limit}
+            onPageChange={setPage}
+          />
+        )}
+      </TuiPanel>
     </div>
   );
 }

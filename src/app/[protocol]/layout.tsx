@@ -1,5 +1,6 @@
 import { notFound } from 'next/navigation';
-import { isValidProtocol } from '@/protocols/registry';
+import { isValidProtocol, getProtocolConfig } from '@/protocols/registry';
+import Shell from './Shell';
 
 export default async function ProtocolLayout({
   children,
@@ -14,5 +15,12 @@ export default async function ProtocolLayout({
     notFound();
   }
 
-  return <>{children}</>;
+  const config = getProtocolConfig(protocol);
+  const protocolName = config?.shortName ?? config?.name ?? protocol.toUpperCase();
+
+  return (
+    <Shell protocol={protocol} protocolName={protocolName}>
+      {children}
+    </Shell>
+  );
 }

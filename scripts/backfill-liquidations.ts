@@ -1,99 +1,84 @@
-/**
- * Historical liquidation event backfill.
- *
- * Paginates through ALL LiquidationEvent events and inserts them into the DB.
- *
- * Usage: npx tsx scripts/backfill-liquidations.ts
- *
- * Requires: DATABASE_URL, ALCHEMY_SUI_RPC (optional)
- */
+import BigNumber from 'bignumber.js';
+import { parseLiquidationEvent } from '../src/protocols/navi/events';
 
 const RPC_URL = process.env.ALCHEMY_SUI_RPC ?? 'https://fullnode.mainnet.sui.io:443';
-
-const NAVI_PACKAGE =
-  '0x1e4a13a0494d5facdbe8473e74127b838c2d446ecec0ce262e2eddafa77259cb';
+const NAVI_PACKAGE = '0x1e4a13a0494d5facdbe8473e74127b838c2d446ecec0ce262e2eddafa77259cb';
 const LIQUIDATION_TYPE = `${NAVI_PACKAGE}::event::LiquidationEvent`;
+const NAVI_POOLS_API = 'https://open-api.naviprotocol.io/api/navi/pools';
 
-const POOL_ID_TO_SYMBOL: Record<number, string> = {
-  0: 'SUI', 1: 'USDC', 2: 'USDT', 3: 'WETH',
-  4: 'CETUS', 5: 'vSUI', 6: 'NAVX', 7: 'haSUI',
-};
-const POOL_DECIMALS: Record<string, number> = {
-  SUI: 9, USDC: 6, USDT: 6, WETH: 8, CETUS: 9, vSUI: 9, NAVX: 9, haSUI: 9,
-};
+interface PoolInfo { symbol: string; decimals: number; }
+
+async function loadPoolRegistry(): Promise<Record<number, PoolInfo>> {
+  const res = await fetch(NAVI_POOLS_API);
+  const json = await res.json();
+  const byId: Record<number, PoolInfo> = {};
+  for (const p of json.data) {
+    byId[p.id] = { symbol: p.token.symbol, decimals: p.token.decimals };
+  }
+  return byId;
+}
 
 let reqId = 0;
 async function rpc(method: string, params: unknown[]) {
   reqId++;
   const res = await fetch(RPC_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ jsonrpc: '2.0', id: reqId, method, params }),
   });
   return res.json();
 }
 
 async function main() {
-  if (!process.env.DATABASE_URL) {
-    console.error('DATABASE_URL not set');
-    process.exit(1);
-  }
-
-  // Dynamic import of Prisma
+  if (!process.env.DATABASE_URL) { console.error('DATABASE_URL not set'); process.exit(1); }
   const { PrismaClient } = await import('@prisma/client');
   const db = new PrismaClient();
 
-  let cursor: { txDigest: string; eventSeq: string } | null = null;
-  let total = 0;
-  let hasMore = true;
-  let page = 0;
+  console.log('Loading NAVI pool registry...');
+  const registry = await loadPoolRegistry();
+  console.log(`  Loaded ${Object.keys(registry).length} pools`);
 
-  console.log('Backfilling liquidation events...');
-  console.log(`RPC: ${RPC_URL}`);
+  let cursor: { txDigest: string; eventSeq: string } | null = null;
+  let total = 0, skipped = 0, hasMore = true, page = 0;
 
   while (hasMore) {
     page++;
-    const result = await rpc('suix_queryEvents', [
-      { MoveEventType: LIQUIDATION_TYPE },
-      cursor,
-      50,
-      false, // ascending — oldest first
-    ]);
-
+    const result = await rpc('suix_queryEvents', [{ MoveEventType: LIQUIDATION_TYPE }, cursor, 50, false]);
     const data = result.result;
     if (!data?.data?.length) break;
 
     const rows = [];
-
     for (const evt of data.data) {
-      const p = evt.parsedJson;
-      const collateralPoolId = Number(p.collateral_asset ?? 0);
-      const debtPoolId = Number(p.debt_asset ?? 0);
-      const collateralSymbol = POOL_ID_TO_SYMBOL[collateralPoolId] ?? 'UNKNOWN';
-      const debtSymbol = POOL_ID_TO_SYMBOL[debtPoolId] ?? 'UNKNOWN';
-      const collateralDec = POOL_DECIMALS[collateralSymbol] ?? 9;
-      const debtDec = POOL_DECIMALS[debtSymbol] ?? 9;
+      let p;
+      try { p = parseLiquidationEvent(evt.parsedJson); }
+      catch (err) { console.warn(`  skip ${evt.id.txDigest}:${evt.id.eventSeq}: ${err instanceof Error ? err.message : err}`); skipped++; continue; }
 
-      const collateralAmount = Number(p.collateral_amount ?? 0) / 10 ** collateralDec;
-      const debtAmount = Number(p.debt_amount ?? 0) / 10 ** debtDec;
-      const collateralPrice = Number(p.collateral_price ?? 0) / 1e18;
-      const debtPrice = Number(p.debt_price ?? 0) / 1e18;
+      const cPool = registry[p.collateral_asset];
+      const dPool = registry[p.debt_asset];
+      if (!cPool || !dPool) { skipped++; continue; }
+
+      const cScale = new BigNumber(10).pow(cPool.decimals);
+      const dScale = new BigNumber(10).pow(dPool.decimals);
+
+      const collateralAmount = new BigNumber(p.collateral_amount).dividedBy(cScale).toNumber();
+      const debtAmount       = new BigNumber(p.debt_amount).dividedBy(dScale).toNumber();
+      const collateralPrice  = new BigNumber(p.collateral_price).dividedBy(cScale).toNumber();
+      const debtPrice        = new BigNumber(p.debt_price).dividedBy(dScale).toNumber();
+      const treasuryAmount   = new BigNumber(p.treasury).dividedBy(cScale).toNumber();
 
       rows.push({
         id: `${evt.id.txDigest}:${evt.id.eventSeq}`,
+        protocol: 'navi',
         txDigest: evt.id.txDigest,
         timestamp: new Date(Number(evt.timestampMs)),
-        liquidator: String(p.sender ?? evt.sender),
-        borrower: String(p.user ?? ''),
-        collateralAsset: collateralSymbol,
-        collateralAmount,
-        collateralPrice,
+        liquidator: p.sender,
+        borrower: p.user,
+        collateralAsset: cPool.symbol,
+        collateralAmount, collateralPrice,
         collateralUsd: collateralAmount * collateralPrice,
-        debtAsset: debtSymbol,
-        debtAmount,
-        debtPrice,
+        debtAsset: dPool.symbol,
+        debtAmount, debtPrice,
         debtUsd: debtAmount * debtPrice,
-        treasuryAmount: Number(p.treasury ?? 0) / 10 ** collateralDec,
+        treasuryAmount,
       });
     }
 
@@ -104,15 +89,11 @@ async function main() {
 
     cursor = data.nextCursor;
     hasMore = data.hasNextPage;
-
     console.log(`Page ${page}: ${rows.length} events (total: ${total})`);
-
-    // Rate limit: 200ms between pages
     await new Promise((r) => setTimeout(r, 200));
   }
 
-  console.log(`\nDone! Total events indexed: ${total}`);
+  console.log(`\nDone! ${total} indexed, ${skipped} skipped`);
   await db.$disconnect();
 }
-
-main().catch(console.error);
+main().catch((e) => { console.error(e); process.exit(1); });

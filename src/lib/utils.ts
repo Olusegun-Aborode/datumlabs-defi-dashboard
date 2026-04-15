@@ -1,5 +1,23 @@
 import { type ClassValue, clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
+import { POOL_CONFIGS } from './constants';
+
+/**
+ * Get a chart color for an asset symbol.
+ *
+ * Prefers the configured color in POOL_CONFIGS; otherwise returns a stable
+ * HSL color derived from the symbol string so newly-added pools always
+ * render distinct and consistent across reloads.
+ */
+export function getAssetColor(symbol: string): string {
+  const configured = POOL_CONFIGS[symbol]?.color;
+  if (configured) return configured;
+  let h = 0;
+  for (let i = 0; i < symbol.length; i++) {
+    h = (h * 31 + symbol.charCodeAt(i)) >>> 0;
+  }
+  return `hsl(${h % 360}, 62%, 58%)`;
+}
 
 /** Merge Tailwind classes safely */
 export function cn(...inputs: ClassValue[]) {

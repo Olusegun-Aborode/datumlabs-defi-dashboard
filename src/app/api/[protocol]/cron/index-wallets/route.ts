@@ -4,13 +4,26 @@ import { isValidProtocol } from '@/protocols/registry';
 import { NAVI_EVENT_TYPES } from '@/protocols/navi/config';
 import { queryEvents } from '@/lib/rpc';
 import { getDb } from '@/lib/db';
+import {
+  fetchNaviUserState,
+  healthToRefreshPriority,
+} from '@/protocols/navi/userState';
+import { parseBorrowEvent, parseDepositEvent } from '@/protocols/navi/events';
 
 export const dynamic = 'force-dynamic';
 
+const REFRESH_BUCKETS = [
+  { priority: 0, staleMinutes: 2 },
+  { priority: 1, staleMinutes: 5 },
+  { priority: 2, staleMinutes: 15 },
+  { priority: 3, staleMinutes: 60 },
+];
+const REFRESH_CAP = 50;
+
 /**
  * Wallet indexer cron.
- * Discovers borrower addresses and refreshes positions by priority.
- * Currently only NAVI event discovery is implemented.
+ * 1) Discover new borrower/depositor addresses from recent events.
+ * 2) Refresh stale wallets (tiered by healthFactor-derived priority).
  */
 export async function GET(
   req: Request,
@@ -32,30 +45,37 @@ export async function GET(
     return NextResponse.json({ error: 'No database configured' }, { status: 503 });
   }
 
-  // Currently only NAVI wallet discovery is implemented
   if (slug !== 'navi') {
     return NextResponse.json({ message: `Wallet indexing not yet implemented for ${slug}` });
   }
 
   try {
-    // Step 1: Discover new addresses from recent events
+    // Step 1: discover new addresses from recent events
     const newAddresses = new Set<string>();
-    for (const eventType of [NAVI_EVENT_TYPES.BORROW, NAVI_EVENT_TYPES.DEPOSIT]) {
+    const eventParsers: Array<[string, (raw: Record<string, unknown>) => { sender: string }]> = [
+      [NAVI_EVENT_TYPES.BORROW, parseBorrowEvent],
+      [NAVI_EVENT_TYPES.DEPOSIT, parseDepositEvent],
+    ];
+    for (const [eventType, parse] of eventParsers) {
       try {
         const page = await queryEvents(eventType, null, 50, 'descending');
         for (const evt of page.data) {
-          const addr = String(evt.parsedJson.sender ?? evt.sender);
-          if (addr) newAddresses.add(addr);
+          try {
+            const { sender } = parse(evt.parsedJson);
+            if (sender) newAddresses.add(sender);
+          } catch {
+            // schema drift on a single event shouldn't halt discovery
+          }
         }
       } catch {
-        // skip if event type query fails
+        // skip if this event type query fails entirely
       }
     }
 
     let discovered = 0;
     for (const address of newAddresses) {
       try {
-        await db.walletPosition.upsert({
+        const res = await db.walletPosition.upsert({
           where: { protocol_address: { protocol: slug, address } },
           create: {
             protocol: slug,
@@ -66,27 +86,25 @@ export async function GET(
             collateralAssets: '[]',
             borrowAssets: '[]',
             refreshPriority: 3,
+            // lastUpdated intentionally set to epoch so the refresh step
+            // below picks this wallet up on the next run (or this run, if
+            // capacity allows).
+            lastUpdated: new Date(0),
           },
           update: {},
         });
-        discovered++;
+        if (res.lastUpdated.getTime() === 0) discovered++;
       } catch {
-        // skip duplicates
+        // ignore duplicates / races
       }
     }
 
-    // Step 2: Refresh stale wallets by priority
-    const priorityThresholds = [
-      { priority: 0, staleMinutes: 2 },
-      { priority: 1, staleMinutes: 5 },
-      { priority: 2, staleMinutes: 15 },
-      { priority: 3, staleMinutes: 60 },
-    ];
-
+    // Step 2: refresh stale wallets, priority-ordered
     let refreshed = 0;
+    let failures = 0;
 
-    for (const { priority, staleMinutes } of priorityThresholds) {
-      if (refreshed >= 50) break;
+    for (const { priority, staleMinutes } of REFRESH_BUCKETS) {
+      if (refreshed >= REFRESH_CAP) break;
 
       const staleThreshold = new Date(Date.now() - staleMinutes * 60 * 1000);
       const staleWallets = await db.walletPosition.findMany({
@@ -96,19 +114,39 @@ export async function GET(
           lastUpdated: { lt: staleThreshold },
         },
         orderBy: { lastUpdated: 'asc' },
-        take: 50 - refreshed,
+        take: REFRESH_CAP - refreshed,
       });
 
       for (const wallet of staleWallets) {
         try {
-          // TODO: Call protocol-specific getLendingState per address
+          const state = await fetchNaviUserState(wallet.address);
           await db.walletPosition.update({
             where: { id: wallet.id },
-            data: { lastUpdated: new Date() },
+            data: {
+              collateralUsd: state.collateralUsd,
+              borrowUsd: state.borrowUsd,
+              healthFactor: state.healthFactor,
+              collateralAssets: JSON.stringify(state.collateralAssets),
+              borrowAssets: JSON.stringify(state.borrowAssets),
+              refreshPriority: healthToRefreshPriority(state.healthFactor),
+              lastUpdated: new Date(),
+            },
           });
           refreshed++;
-        } catch {
-          // skip individual wallet errors
+        } catch (err) {
+          failures++;
+          console.error(
+            `[index-wallets] refresh failed for ${wallet.address}:`,
+            err instanceof Error ? err.message : err
+          );
+          // Bump lastUpdated so we don't hammer a bad address every run,
+          // but keep its priority so it stays eligible for retry later.
+          await db.walletPosition
+            .update({
+              where: { id: wallet.id },
+              data: { lastUpdated: new Date() },
+            })
+            .catch(() => {});
         }
       }
     }
@@ -118,6 +156,7 @@ export async function GET(
       protocol: slug,
       discovered,
       refreshed,
+      failures,
       timestamp: new Date().toISOString(),
     });
   } catch (error) {

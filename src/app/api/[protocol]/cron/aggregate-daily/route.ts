@@ -38,7 +38,18 @@ export async function GET(
     endOfDay.setHours(23, 59, 59, 999);
 
     let aggregated = 0;
-    const symbols = entry.config.assets.map((a) => a.symbol);
+    // Derive the symbol list from the snapshots that actually exist for
+    // yesterday — this keeps the rollup in sync with live pool discovery
+    // instead of the (smaller) hardcoded config.assets list.
+    const symbolRows = await db.poolSnapshot.findMany({
+      where: {
+        protocol: slug,
+        timestamp: { gte: yesterday, lte: endOfDay },
+      },
+      distinct: ['symbol'],
+      select: { symbol: true },
+    });
+    const symbols = symbolRows.map((r: { symbol: string }) => r.symbol);
 
     for (const symbol of symbols) {
       const snapshots = await db.poolSnapshot.findMany({

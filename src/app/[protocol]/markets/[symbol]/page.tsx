@@ -1,13 +1,14 @@
 'use client';
 
-import { useState, useEffect, use } from 'react';
+import { use } from 'react';
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
-import KpiCard from '@/components/KpiCard';
+import { useQuery } from '@tanstack/react-query';
+import { TuiPanel, ChartWrapper, LoadingState, ErrorState } from '@datumlabs/dashboard-kit';
 import SimpleLineChart from '@/components/charts/SimpleLineChart';
 import InterestRateCurve from '@/components/charts/InterestRateCurve';
 import DonutChart from '@/components/charts/DonutChart';
-import { formatUsd, formatPercent, formatNumber } from '@/lib/utils';
+import { formatUsd, formatPercent, formatNumber, getAssetColor } from '@/lib/utils';
 
 interface PoolDetail {
   symbol: string;
@@ -26,7 +27,6 @@ interface PoolDetail {
   borrowCapCeiling: number;
   price: number;
 }
-
 interface RateModel {
   baseRate: number;
   multiplier: number;
@@ -34,19 +34,25 @@ interface RateModel {
   kink: number;
   reserveFactor: number;
 }
-
 interface HistoryRow {
   date: string;
   avgSupplyApy: number;
   avgBorrowApy: number;
   avgUtilization: number;
 }
-
 interface PairData {
   collateralAsset: string;
   borrowAsset: string;
   totalCollateralUsd: number;
   totalBorrowUsd: number;
+}
+interface DetailResponse {
+  pool: PoolDetail | null;
+  rateModel: RateModel | null;
+  history: HistoryRow[];
+  pairs: { asCollateral: PairData[]; asBorrow: PairData[] };
+  assetColor?: string;
+  assetName?: string;
 }
 
 export default function MarketDetailPage({
@@ -57,227 +63,150 @@ export default function MarketDetailPage({
   const { protocol, symbol } = use(params);
   const upperSymbol = symbol.toUpperCase();
 
-  const [pool, setPool] = useState<PoolDetail | null>(null);
-  const [rateModel, setRateModel] = useState<RateModel | null>(null);
-  const [history, setHistory] = useState<HistoryRow[]>([]);
-  const [pairs, setPairs] = useState<{ asCollateral: PairData[]; asBorrow: PairData[] }>({
-    asCollateral: [],
-    asBorrow: [],
+  const { data, isPending, isError, refetch } = useQuery<DetailResponse>({
+    queryKey: ['poolDetail', protocol, upperSymbol],
+    queryFn: () => fetch(`/api/${protocol}/pools/${upperSymbol}`).then((r) => r.json()),
   });
-  const [assetColor, setAssetColor] = useState('#666');
-  const [assetName, setAssetName] = useState(upperSymbol);
-  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    fetch(`/api/${protocol}/pools/${upperSymbol}`)
-      .then((r) => r.json())
-      .then((data) => {
-        setPool(data.pool);
-        setRateModel(data.rateModel);
-        setHistory(data.history ?? []);
-        setPairs(data.pairs ?? { asCollateral: [], asBorrow: [] });
-        if (data.assetColor) setAssetColor(data.assetColor);
-        if (data.assetName) setAssetName(data.assetName);
-      })
-      .catch(console.error)
-      .finally(() => setLoading(false));
-  }, [protocol, upperSymbol]);
+  if (isPending) return <LoadingState />;
+  if (isError) return <ErrorState message={`Failed to load ${upperSymbol}.`} onRetry={() => refetch()} />;
 
-  if (loading) {
-    return (
-      <div className="flex h-64 items-center justify-center text-zinc-500">
-        Loading {upperSymbol} data...
-      </div>
-    );
-  }
+  const { pool, rateModel, history, pairs } = data;
+  const assetColor = data.assetColor ?? getAssetColor(upperSymbol);
+  const assetName = data.assetName ?? upperSymbol;
 
-  const rateHistory = history.map((h) => ({
-    date: h.date,
-    supplyApy: h.avgSupplyApy,
-    borrowApy: h.avgBorrowApy,
-  }));
-
-  const utilHistory = history.map((h) => ({
-    date: h.date,
-    utilization: h.avgUtilization,
-  }));
-
-  const borrowedAgainst = pairs.asCollateral.map((p) => ({
-    name: p.borrowAsset,
-    value: p.totalBorrowUsd,
-  }));
-
-  const collateralUsed = pairs.asBorrow.map((p) => ({
-    name: p.collateralAsset,
-    value: p.totalCollateralUsd,
-  }));
+  const rateHistory = history.map((h) => ({ date: h.date, supplyApy: h.avgSupplyApy, borrowApy: h.avgBorrowApy }));
+  const utilHistory = history.map((h) => ({ date: h.date, utilization: h.avgUtilization }));
+  const borrowedAgainst = pairs.asCollateral.map((p) => ({ name: p.borrowAsset, value: p.totalBorrowUsd }));
+  const collateralUsed = pairs.asBorrow.map((p) => ({ name: p.collateralAsset, value: p.totalCollateralUsd }));
 
   return (
-    <div className="space-y-6">
-      {/* Back link + title */}
+    <div className="space-y-4">
       <div className="flex items-center gap-3">
         <Link
           href={`/${protocol}/markets`}
-          className="rounded-lg p-2 text-zinc-400 hover:bg-zinc-800 hover:text-white"
+          className="rounded p-1.5 transition-colors"
+          style={{ color: 'var(--text-muted)', border: '1px solid var(--border)' }}
         >
-          <ArrowLeft className="h-5 w-5" />
+          <ArrowLeft className="h-4 w-4" />
         </Link>
-        <div className="flex items-center gap-3">
-          <span
-            className="inline-block h-4 w-4 rounded-full"
-            style={{ backgroundColor: assetColor }}
+        <div className="flex items-center gap-2">
+          <span className="token-dot" style={{ backgroundColor: assetColor, margin: 0 }} />
+          <span className="text-[11px] font-bold uppercase tracking-[0.1em]" style={{ color: 'var(--accent-orange)' }}>
+            {upperSymbol}
+          </span>
+          <span className="text-[10px]" style={{ color: 'var(--text-muted)' }}>
+            {assetName}
+          </span>
+        </div>
+      </div>
+
+      <TuiPanel title={`${upperSymbol} Overview`} badge="LIVE" noPadding>
+        <div className="grid grid-cols-2 lg:grid-cols-4">
+          <Cell title="Total Supply" value={pool ? formatUsd(pool.totalSupplyUsd, true) : '—'} sub={pool ? `${formatNumber(pool.totalSupply)} ${upperSymbol}` : undefined} />
+          <Cell title="Total Borrows" value={pool ? formatUsd(pool.totalBorrowsUsd, true) : '—'} sub={pool ? `${formatNumber(pool.totalBorrows)} ${upperSymbol}` : undefined} />
+          <Cell title="Supply APY" value={pool ? formatPercent(pool.supplyApy) : '—'} />
+          <Cell title="Borrow APY" value={pool ? formatPercent(pool.borrowApy) : '—'} last />
+        </div>
+      </TuiPanel>
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <TuiPanel title="Interest Rate Model">
+          {rateModel ? (
+            <KvList
+              rows={[
+                ['Base Rate', formatPercent(rateModel.baseRate * 100)],
+                ['Multiplier', formatPercent(rateModel.multiplier * 100)],
+                ['Jump Multiplier', formatPercent(rateModel.jumpMultiplier * 100)],
+                ['Kink', formatPercent(rateModel.kink * 100)],
+                ['Reserve Factor', formatPercent(rateModel.reserveFactor * 100)],
+              ]}
+            />
+          ) : (
+            <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Rate model params not yet indexed</p>
+          )}
+        </TuiPanel>
+        <TuiPanel title="Risk Parameters">
+          <KvList
+            rows={[
+              ['LTV', pool ? formatPercent(pool.ltv) : '—'],
+              ['Liquidation Threshold', pool ? formatPercent(pool.liquidationThreshold) : '—'],
+              ['Utilization', pool ? formatPercent(pool.utilization) : '—'],
+              ['Supply Cap', pool ? formatNumber(pool.supplyCapCeiling) : '—'],
+              ['Borrow Cap', pool ? formatNumber(pool.borrowCapCeiling) : '—'],
+              ['Price', pool ? formatUsd(pool.price) : '—'],
+            ]}
           />
-          <h1 className="text-2xl font-bold text-white">{upperSymbol}</h1>
-          <span className="text-sm text-zinc-400">{assetName}</span>
-        </div>
+        </TuiPanel>
       </div>
 
-      {/* Row 1: Overview cards */}
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-        <KpiCard title="Total Supply" value={pool ? formatUsd(pool.totalSupplyUsd, true) : '—'} subtitle={pool ? `${formatNumber(pool.totalSupply)} ${upperSymbol}` : undefined} />
-        <KpiCard title="Total Borrows" value={pool ? formatUsd(pool.totalBorrowsUsd, true) : '—'} subtitle={pool ? `${formatNumber(pool.totalBorrows)} ${upperSymbol}` : undefined} />
-        <KpiCard title="Supply APY" value={pool ? formatPercent(pool.supplyApy) : '—'} />
-        <KpiCard title="Borrow APY" value={pool ? formatPercent(pool.borrowApy) : '—'} />
-      </div>
-
-      {/* Row 2: Rate model + Risk params */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        {rateModel ? (
-          <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-6 space-y-3">
-            <h3 className="text-sm font-medium text-zinc-400">Interest Rate Model</h3>
-            <div className="grid grid-cols-2 gap-2 text-sm">
-              <span className="text-zinc-500">Base Rate</span>
-              <span className="text-right text-zinc-300">{formatPercent(rateModel.baseRate * 100)}</span>
-              <span className="text-zinc-500">Multiplier</span>
-              <span className="text-right text-zinc-300">{formatPercent(rateModel.multiplier * 100)}</span>
-              <span className="text-zinc-500">Jump Multiplier</span>
-              <span className="text-right text-zinc-300">{formatPercent(rateModel.jumpMultiplier * 100)}</span>
-              <span className="text-zinc-500">Kink</span>
-              <span className="text-right text-zinc-300">{formatPercent(rateModel.kink * 100)}</span>
-              <span className="text-zinc-500">Reserve Factor</span>
-              <span className="text-right text-zinc-300">{formatPercent(rateModel.reserveFactor * 100)}</span>
-            </div>
-          </div>
-        ) : (
-          <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-6">
-            <h3 className="text-sm font-medium text-zinc-400">Interest Rate Model</h3>
-            <p className="mt-4 text-sm text-zinc-600">Rate model params not yet indexed</p>
-          </div>
-        )}
-
-        <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-6 space-y-3">
-          <h3 className="text-sm font-medium text-zinc-400">Risk Parameters</h3>
-          <div className="grid grid-cols-2 gap-2 text-sm">
-            <span className="text-zinc-500">LTV</span>
-            <span className="text-right text-zinc-300">{pool ? formatPercent(pool.ltv) : '—'}</span>
-            <span className="text-zinc-500">Liquidation Threshold</span>
-            <span className="text-right text-zinc-300">{pool ? formatPercent(pool.liquidationThreshold) : '—'}</span>
-            <span className="text-zinc-500">Utilization</span>
-            <span className="text-right text-zinc-300">{pool ? formatPercent(pool.utilization) : '—'}</span>
-            <span className="text-zinc-500">Supply Cap</span>
-            <span className="text-right text-zinc-300">{pool ? formatNumber(pool.supplyCapCeiling) : '—'}</span>
-            <span className="text-zinc-500">Borrow Cap</span>
-            <span className="text-right text-zinc-300">{pool ? formatNumber(pool.borrowCapCeiling) : '—'}</span>
-            <span className="text-zinc-500">Price</span>
-            <span className="text-right text-zinc-300">{pool ? formatUsd(pool.price) : '—'}</span>
-          </div>
-        </div>
+        <ChartWrapper title="Interest Rate History" badge="90D">
+          <SimpleLineChart
+            data={rateHistory}
+            lines={[
+              { dataKey: 'supplyApy', color: 'var(--accent-green)', name: 'Supply APY' },
+              { dataKey: 'borrowApy', color: 'var(--accent-red)', name: 'Borrow APY' },
+            ]}
+          />
+        </ChartWrapper>
+        <ChartWrapper title="Utilization History" badge="90D">
+          <SimpleLineChart
+            data={utilHistory}
+            lines={[{ dataKey: 'utilization', color: 'var(--accent-blue)', name: 'Utilization' }]}
+          />
+        </ChartWrapper>
       </div>
 
-      {/* Row 3: Historical charts */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <SimpleLineChart
-          data={rateHistory}
-          lines={[
-            { dataKey: 'supplyApy', color: '#22C55E', name: 'Supply APY' },
-            { dataKey: 'borrowApy', color: '#EF4444', name: 'Borrow APY' },
-          ]}
-          title="Interest Rate History (90d)"
-        />
-        <SimpleLineChart
-          data={utilHistory}
-          lines={[{ dataKey: 'utilization', color: '#3B82F6', name: 'Utilization' }]}
-          title="Utilization History (90d)"
-        />
-      </div>
-
-      {/* Row 4: Interest Rate Curve */}
       {rateModel && (
-        <InterestRateCurve
-          baseRate={rateModel.baseRate}
-          multiplier={rateModel.multiplier}
-          jumpMultiplier={rateModel.jumpMultiplier}
-          kink={rateModel.kink}
-          reserveFactor={rateModel.reserveFactor}
-          currentUtilization={pool?.utilization}
-        />
+        <ChartWrapper title="Interest Rate Curve" badge="MODEL">
+          <InterestRateCurve
+            baseRate={rateModel.baseRate}
+            multiplier={rateModel.multiplier}
+            jumpMultiplier={rateModel.jumpMultiplier}
+            kink={rateModel.kink}
+            reserveFactor={rateModel.reserveFactor}
+            currentUtilization={pool?.utilization}
+          />
+        </ChartWrapper>
       )}
 
-      {/* Row 5: Cap utilization */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-6">
-          <h3 className="text-sm font-medium text-zinc-400">Supply Cap Utilization</h3>
-          {pool && pool.supplyCapCeiling > 0 ? (
-            <div className="mt-4">
-              <div className="flex justify-between text-sm">
-                <span className="text-zinc-500">Used</span>
-                <span className="text-zinc-300">
-                  {formatPercent((pool.totalSupply / pool.supplyCapCeiling) * 100)}
-                </span>
-              </div>
-              <div className="mt-2 h-3 overflow-hidden rounded-full bg-zinc-800">
-                <div
-                  className="h-full rounded-full bg-green-500"
-                  style={{ width: `${Math.min((pool.totalSupply / pool.supplyCapCeiling) * 100, 100)}%` }}
-                />
-              </div>
-              <div className="mt-1 flex justify-between text-xs text-zinc-600">
-                <span>{formatNumber(pool.totalSupply)} {upperSymbol}</span>
-                <span>{formatNumber(pool.supplyCapCeiling)} {upperSymbol}</span>
-              </div>
-            </div>
-          ) : (
-            <p className="mt-4 text-sm text-zinc-600">No cap data</p>
-          )}
-        </div>
-        <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-6">
-          <h3 className="text-sm font-medium text-zinc-400">Borrow Cap Utilization</h3>
-          {pool && pool.borrowCapCeiling > 0 ? (
-            <div className="mt-4">
-              <div className="flex justify-between text-sm">
-                <span className="text-zinc-500">Used</span>
-                <span className="text-zinc-300">
-                  {formatPercent((pool.totalBorrows / pool.borrowCapCeiling) * 100)}
-                </span>
-              </div>
-              <div className="mt-2 h-3 overflow-hidden rounded-full bg-zinc-800">
-                <div
-                  className="h-full rounded-full bg-red-500"
-                  style={{ width: `${Math.min((pool.totalBorrows / pool.borrowCapCeiling) * 100, 100)}%` }}
-                />
-              </div>
-              <div className="mt-1 flex justify-between text-xs text-zinc-600">
-                <span>{formatNumber(pool.totalBorrows)} {upperSymbol}</span>
-                <span>{formatNumber(pool.borrowCapCeiling)} {upperSymbol}</span>
-              </div>
-            </div>
-          ) : (
-            <p className="mt-4 text-sm text-zinc-600">No cap data</p>
-          )}
-        </div>
+        <ChartWrapper title={`Borrowed Against ${upperSymbol}`} badge="ALL">
+          <DonutChart data={borrowedAgainst} />
+        </ChartWrapper>
+        <ChartWrapper title={`Collateral for ${upperSymbol} Borrows`} badge="ALL">
+          <DonutChart data={collateralUsed} />
+        </ChartWrapper>
       </div>
+    </div>
+  );
+}
 
-      {/* Row 6: Donut charts */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <DonutChart
-          data={borrowedAgainst}
-          title={`Assets Borrowed Against ${upperSymbol} Collateral`}
-        />
-        <DonutChart
-          data={collateralUsed}
-          title={`Collateral Used to Borrow ${upperSymbol}`}
-        />
-      </div>
+function Cell({ title, value, sub, last }: { title: string; value: string; sub?: string; last?: boolean }) {
+  return (
+    <div
+      className={`p-4 lg:p-5 ${last ? '' : 'border-r'}`}
+      style={{ borderColor: 'var(--border)' }}
+    >
+      <div className="counter-label">{title}</div>
+      <div className="counter-value" style={{ color: 'var(--foreground)' }}>{value}</div>
+      {sub && (
+        <div className="text-[10px] mt-1" style={{ color: 'var(--text-muted)' }}>{sub}</div>
+      )}
+    </div>
+  );
+}
+
+function KvList({ rows }: { rows: Array<[string, string]> }) {
+  return (
+    <div className="grid grid-cols-2 gap-y-2 text-xs">
+      {rows.map(([k, v]) => (
+        <span key={k} className="contents">
+          <span style={{ color: 'var(--text-muted)' }}>{k}</span>
+          <span className="text-right" style={{ color: 'var(--foreground)' }}>{v}</span>
+        </span>
+      ))}
     </div>
   );
 }

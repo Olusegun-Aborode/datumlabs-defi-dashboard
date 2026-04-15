@@ -1,9 +1,14 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useParams } from 'next/navigation';
-import KpiCard from '@/components/KpiCard';
-import TimeFilter from '@/components/TimeFilter';
+import { useQuery } from '@tanstack/react-query';
+import {
+  TuiPanel,
+  ChartWrapper,
+  LoadingState,
+  ErrorState,
+} from '@datumlabs/dashboard-kit';
 import StackedAreaChart from '@/components/charts/StackedAreaChart';
 import { formatUsd } from '@/lib/utils';
 
@@ -12,14 +17,12 @@ interface PoolData {
   totalSupplyUsd: number;
   totalBorrowsUsd: number;
 }
-
 interface PoolsResponse {
   pools: PoolData[];
   totals: { totalSupplyUsd: number; totalBorrowsUsd: number; tvl: number };
   protocolName?: string;
   symbols?: string[];
 }
-
 interface HistoryRow {
   symbol: string;
   date: string;
@@ -30,35 +33,34 @@ interface HistoryRow {
 
 export default function OverviewPage() {
   const { protocol } = useParams<{ protocol: string }>();
-  const [pools, setPools] = useState<PoolsResponse | null>(null);
-  const [history, setHistory] = useState<HistoryRow[]>([]);
   const [days, setDays] = useState(30);
-  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    setLoading(true);
-    Promise.all([
-      fetch(`/api/${protocol}/pools`).then((r) => r.json()),
+  const poolsQuery = useQuery<PoolsResponse>({
+    queryKey: ['pools', protocol],
+    queryFn: () => fetch(`/api/${protocol}/pools`).then((r) => r.json()),
+  });
+
+  const historyQuery = useQuery<{ history: HistoryRow[] }>({
+    queryKey: ['poolsHistory', protocol, days],
+    queryFn: () =>
       fetch(`/api/${protocol}/pools/history?days=${days}`).then((r) => r.json()),
-    ])
-      .then(([poolsData, historyData]) => {
-        setPools(poolsData);
-        setHistory(historyData.history ?? []);
-      })
-      .catch(console.error)
-      .finally(() => setLoading(false));
-  }, [protocol, days]);
+  });
 
-  // Get symbols from the API response
-  const symbols = pools?.symbols ?? pools?.pools?.map((p) => p.symbol) ?? [];
+  if (poolsQuery.isPending) return <LoadingState />;
+  if (poolsQuery.isError)
+    return <ErrorState message="Failed to load pools." onRetry={() => poolsQuery.refetch()} />;
+
+  const pools = poolsQuery.data;
+  const history = historyQuery.data?.history ?? [];
+  const symbols = pools.symbols ?? pools.pools.map((p) => p.symbol);
+  const t = pools.totals;
+  const utilizationPct = t.totalSupplyUsd > 0 ? (t.totalBorrowsUsd / t.totalSupplyUsd) * 100 : 0;
 
   function buildChartData(valueKey: string) {
     const dateMap = new Map<string, Record<string, unknown>>();
     for (const row of history) {
       const dateStr = new Date(row.date).toISOString().split('T')[0];
-      if (!dateMap.has(dateStr)) {
-        dateMap.set(dateStr, { date: dateStr });
-      }
+      if (!dateMap.has(dateStr)) dateMap.set(dateStr, { date: dateStr });
       const entry = dateMap.get(dateStr)!;
       if (valueKey === 'supply') entry[`${row.symbol}_supply`] = row.closeTotalSupplyUsd;
       if (valueKey === 'borrows') entry[`${row.symbol}_borrows`] = row.closeTotalBorrowsUsd;
@@ -69,57 +71,43 @@ export default function OverviewPage() {
     );
   }
 
-  const t = pools?.totals;
-  const protocolName = pools?.protocolName ?? protocol.toUpperCase();
-
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-white">Protocol Overview</h1>
-          <p className="text-sm text-zinc-400">{protocolName} — real-time analytics</p>
+    <div className="space-y-4">
+      <TuiPanel title="Protocol Overview" badge="LIVE" noPadding>
+        <div className="grid grid-cols-2 lg:grid-cols-4">
+          <MetricCardCell title="Total Supplied" value={formatUsd(t.totalSupplyUsd, true)} />
+          <MetricCardCell title="Total Borrowed" value={formatUsd(t.totalBorrowsUsd, true)} />
+          <MetricCardCell title="TVL" value={formatUsd(t.tvl, true)} />
+          <MetricCardCell title="Utilization" value={`${utilizationPct.toFixed(2)}%`} last />
         </div>
-        <TimeFilter value={days} onChange={setDays} />
-      </div>
+      </TuiPanel>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <KpiCard
-          title="Total Supplied"
-          value={t ? formatUsd(t.totalSupplyUsd, true) : '—'}
-          subtitle={loading ? 'Loading...' : undefined}
-        />
-        <KpiCard
-          title="Total Borrowed"
-          value={t ? formatUsd(t.totalBorrowsUsd, true) : '—'}
-          subtitle={loading ? 'Loading...' : undefined}
-        />
-        <KpiCard
-          title="Total Value Locked"
-          value={t ? formatUsd(t.tvl, true) : '—'}
-          subtitle={loading ? 'Loading...' : undefined}
-        />
-      </div>
+      <ChartWrapper title="Total Supply by Asset" badge={`${days}D`} timeRanges={[7, 30, 90]} selectedRange={days} onRangeChange={setDays}>
+        <StackedAreaChart data={buildChartData('supply')} symbols={symbols} valueKey="supply" />
+      </ChartWrapper>
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-1">
-        <StackedAreaChart
-          data={buildChartData('supply')}
-          symbols={symbols}
-          title="Total Supply by Asset"
-          valueKey="supply"
-        />
-        <StackedAreaChart
-          data={buildChartData('borrows')}
-          symbols={symbols}
-          title="Total Borrows by Asset"
-          valueKey="borrows"
-        />
-        <StackedAreaChart
-          data={buildChartData('tvl')}
-          symbols={symbols}
-          title="TVL by Asset"
-          valueKey="tvl"
-        />
+      <ChartWrapper title="Total Borrows by Asset" badge={`${days}D`} timeRanges={[7, 30, 90]} selectedRange={days} onRangeChange={setDays}>
+        <StackedAreaChart data={buildChartData('borrows')} symbols={symbols} valueKey="borrows" />
+      </ChartWrapper>
+
+      <ChartWrapper title="TVL by Asset" badge={`${days}D`} timeRanges={[7, 30, 90]} selectedRange={days} onRangeChange={setDays}>
+        <StackedAreaChart data={buildChartData('tvl')} symbols={symbols} valueKey="tvl" />
+      </ChartWrapper>
+    </div>
+  );
+}
+
+function MetricCardCell({ title, value, last }: { title: string; value: string; last?: boolean }) {
+  return (
+    <div
+      className={`p-4 lg:p-5 ${last ? '' : 'border-r'}`}
+      style={{ borderColor: 'var(--border)' }}
+    >
+      <div className="counter-label">{title}</div>
+      <div className="counter-value" style={{ color: 'var(--foreground)' }}>
+        {value}
       </div>
     </div>
   );
 }
+
